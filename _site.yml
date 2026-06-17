@@ -1,15 +1,8 @@
-name: "Cyclones"
-output_dir: "docs"
-new_session: true
+name: "my-website"
 navbar:
-  title: "Vignettes"
+  title: "My Website"
   left:
-    - text: "Introduction"
+    - text: "Home"
       href: index.html
-    - text: "Rains"
-      href: Rains.html
-output:
-  html_document:
-    theme: cosmo
-    highlight: textmate
-    toc: true
+    - text: "About"
+      href: about.html
