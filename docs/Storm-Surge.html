@@ -11,7 +11,7 @@
 
 
 
-<title>Rains</title>
+<title>Storm-Surge</title>
 
 <script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
@@ -266,40 +266,12 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Rains</h1>
+<h1 class="title toc-ignore">Storm-Surge</h1>
 
 </div>
 
 
-<div id="get-precipitation-products" class="section level1">
-<h1>Get Precipitation Products</h1>
-<p>The Cyclones package can also ingest and process precipitation data
-for all storms after 1940. There are three potential sources for the
-data: <a
-href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels">the
-European Space Agency’s ERA5 (ecmwf)</a>, <a
-href="https://gpm.nasa.gov/missions/GPM">the National Aeronautics and
-Space Administration’s (NASA) Global Precipitation Measurement Mission
-(gpm)</a>, and <a href="https://www.gloh2o.org/">the Multi-Source
-Weighted-Ensemble Precipitation (mswep)</a>. All data sources require
-some sort initial registration before they can be accessed via the api,
-as well as additional packages for extracting and assembling the data.
-They are global, hourly or three-hourly data at ~25 and 10 km
-resolution. The get_precip function will request data from the source
-(default is ecmwf), download it into a given directory (if specified),
-and then create storm specific gridded precipitation outputs.</p>
-<p>Unlike wind, cyclone precipitation patterns are often preceded by
-“predecessor rain events” <a
-href="%22https://doi.org/10.1175/2010MWR3243.1%22">(PREs)</a>, in which
-moist tropical air is trapped and lifted by a high pressure system in
-front of the oncoming cyclone, where it then falls as significant
-precipitation around 36 hours before the arrival of cyclone derived
-rainfall. Therefore, ‘get_precip()’ will accept a numerical “prestorm”
-argument specifying the number of hours before the arrival of a cyclone
-for which to also gather precipitation. A value of TRUE will also be
-accepted and will default to 48 hours. In these cases, the results will
-be separated into “storm” and “prestorm” rasters.</p>
-</div>
+
 
 
 
