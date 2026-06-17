@@ -1,7 +1,7 @@
-name: "my-website"
+name: "Cyclones"
 output_dir: docs
 navbar:
-  title: "My Website"
+  title: "Vignettes"
   left:
     - text: "Home"
       href: index.html
@@ -9,3 +9,5 @@ navbar:
       href: winds.html
     - text: "Rains"
       href: rains.html
+    - text: "Storm Surge"
+      href: Storm-Surge.html
