@@ -225,22 +225,24 @@ from the web.</p>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="do">##  storms can be singular or plural and can be identified specifically, or not</span></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="do">##  HURDAT data are relatively limited compared to IBTrACS and may not have full</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="do">##  functionality for wind products, but should be sufficient for precipitation and storm surge.</span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">source=</span><span class="st">&quot;hurdat&quot;</span>,<span class="at">name=</span><span class="st">&quot;Camille&quot;</span>,<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">1969</span>)</span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">name=</span><span class="fu">c</span>(<span class="st">&quot;Maria&quot;</span>,<span class="st">&quot;IRMA&quot;</span>),<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">2017</span>)</span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">names</span>(storms)</span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="do">##  alternatively, all of the data can be downloaded and filtered later</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="do">##  we recommend this if wind models need to be constructed in later steps</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="do">##  downloading all storms or any storm distant historical storm will likely </span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="do">##  require extending the timeout time</span></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="do">##  options(timeout = 300)</span></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>allstorms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">ib_filt=</span><span class="st">&quot;ALL&quot;</span>)</span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>storms <span class="ot">&lt;-</span> allstorms[<span class="fu">grep</span>(<span class="st">&quot;CAMILLE_1969|SINLAKU_2026&quot;</span>,<span class="fu">names</span>(allstorms))]</span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="do">## the result is a named list of data pertinent to each storm</span></span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="do">## Names are consistent throughout Cyclones and include the name, season, basin, and ID#</span></span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="fu">names</span>(storms)</span></code></pre></div>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="do">##  functionality for wind products, but should be sufficient for precipitation </span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="do">##  and storm surge.</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">source=</span><span class="st">&quot;hurdat&quot;</span>,<span class="at">name=</span><span class="st">&quot;Camille&quot;</span>,<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">1969</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">name=</span><span class="fu">c</span>(<span class="st">&quot;Maria&quot;</span>,<span class="st">&quot;IRMA&quot;</span>),<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">2017</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="fu">names</span>(storms)</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="do">##  alternatively, all of the data can be downloaded and filtered later</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="do">##  we recommend this if wind models need to be constructed in later steps</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="do">##  downloading all storms or any storm distant historical storm will likely </span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="do">##  require extending the timeout time</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="do">##  options(timeout = 300)</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>allstorms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">ib_filt=</span><span class="st">&quot;ALL&quot;</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>storms <span class="ot">&lt;-</span> allstorms[<span class="fu">grep</span>(<span class="st">&quot;CAMILLE_1969|SINLAKU_2026&quot;</span>,<span class="fu">names</span>(allstorms))]</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="do">## the result is a named list of data pertinent to each storm</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="do">## Names are consistent throughout Cyclones and include the name, season, basin,</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="do">## and ID#</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="fu">names</span>(storms)</span></code></pre></div>
 <p>The ‘get_storms()’ function will automatically consolidate variables
 across agencies. If only one value is available for a given variable
 (for example, among the ’_WIND’ variable versions of USA_WIND, WMO_WIND,
@@ -281,7 +283,10 @@ vignette for more details.</p>
 <span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="do">##  use the t_res parameter to adjust temporal resolution (in minutes)</span></span>
 <span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,make_extents)</span></code></pre></div>
 <p>These spatial features can also be good for certain storm
-visualizations in which a fully gridded raster is not necessary.</p>
+visualizations in which a fully gridded raster is not necessary. The
+below figure demonstrate how these simple features represent the various
+extents, and how the interpolated and modeled features compare to the
+native features.</p>
 <div class="float">
 <img src="index_files/figure-html/plot-extents-1.png"
 alt="Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the ‘mods’ argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in ‘make_extents()’, there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map." />

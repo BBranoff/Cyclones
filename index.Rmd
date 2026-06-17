@@ -88,7 +88,8 @@ library(Cyclones)
 
 ##  storms can be singular or plural and can be identified specifically, or not
 ##  HURDAT data are relatively limited compared to IBTrACS and may not have full
-##  functionality for wind products, but should be sufficient for precipitation and storm surge.
+##  functionality for wind products, but should be sufficient for precipitation 
+##  and storm surge.
 storms <- get_storms(source="hurdat",name="Camille",basin="NA",season=1969)
 storms <- get_storms(name=c("Maria","IRMA"),basin="NA",season=2017)
 names(storms)
@@ -102,7 +103,8 @@ allstorms <- get_storms(ib_filt="ALL")
 storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 
 ## the result is a named list of data pertinent to each storm
-## Names are consistent throughout Cyclones and include the name, season, basin, and ID#
+## Names are consistent throughout Cyclones and include the name, season, basin,
+## and ID#
 names(storms)
 ```
 
