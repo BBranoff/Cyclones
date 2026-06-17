@@ -174,6 +174,14 @@ either at specific times or as aggregate
 <li>Integrate SLOSH for storm surge</li>
 </ul>
 </div>
+<div id="installation" class="section level1">
+<h1>Installation</h1>
+<p>For now Cyclones is hosted only GitHub and the most current stable
+version can be installed via the steps below. A development version is
+also available but may be unstable as new issues are addressed.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># install.packages(&quot;remotes&quot;)</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>remotes<span class="sc">::</span><span class="fu">install_github</span>(<span class="st">&quot;BBranoff/Cyclones&quot;</span>)</span></code></pre></div>
+</div>
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <p>R utilities for producing variable temporal and spatial resolution
@@ -198,7 +206,7 @@ m)) outputs and especially when producing Thin Plate Spline (TPS)
 outputs, and is probably best utilized if at least 5-10 cpus could be
 set aside for the effort, but there hasnt been any in-depth test of
 performance yet. Parallelizing at the storm level is demonstrated below
-in snowfall, but could be done with other libraries at the user’s
+in the vignettes, but could be done with other libraries at the user’s
 discretion and also could be done with only a few (&lt;5) cpus. The
 functions will not allow you to do both internal and external
 parallelization, but otherwise, the user is expected to know how many
@@ -208,29 +216,31 @@ cpus can be safely utilized on their system.</p>
 <h1>Get Storm Tabular Data</h1>
 <p>Use the ‘get_storms()’ function to gather the available time series,
 location, and meteorological information for a particular storm. If a
-local, pre-downloaded IBTrACS .csv or .nc data source is available, it
-can be used, either as the file location or as a pre-loaded dataset. If
-not, the data will be downloaded from the web.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(Cyclones)</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="do">##  storms can be singular or plural and can be identified specifically, or not</span></span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="do">##  HURDAT data are relatively limited compared to IBTrACS and may not have full</span></span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="do">##  functionality for wind products, but should be sufficient for precipitation and storm surge.</span></span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">source=</span><span class="st">&quot;hurdat&quot;</span>,<span class="at">name=</span><span class="st">&quot;Camille&quot;</span>,<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">1969</span>)</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">name=</span><span class="fu">c</span>(<span class="st">&quot;Maria&quot;</span>,<span class="st">&quot;IRMA&quot;</span>),<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">2017</span>)</span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="fu">names</span>(storms)</span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="do">##  alternatively, all of the data can be downloaded and filtered later</span></span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="do">##  we recommend this if wind models need to be constructed in later steps</span></span>
-<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="do">##  downloading all storms or any storm distant historical storm will likely </span></span>
-<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="do">##  require extending the timeout time</span></span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="do">##  options(timeout = 300)</span></span>
-<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>allstorms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">ib_filt=</span><span class="st">&quot;ALL&quot;</span>)</span>
-<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>storms <span class="ot">&lt;-</span> allstorms[<span class="fu">grep</span>(<span class="st">&quot;CAMILLE_1969|SINLAKU_2026&quot;</span>,<span class="fu">names</span>(allstorms))]</span>
-<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="do">## the result is a named list of data pertinent to each storm</span></span>
-<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="do">## Names are consistent throughout Cyclones and include the name, season, basin, and ID#</span></span>
-<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="fu">names</span>(storms)</span></code></pre></div>
+local, pre-downloaded <a
+href="https://www.ncei.noaa.gov/products/international-best-track-archive">IBTrACS</a>
+.csv or .nc data source is available, it can be used, either as the file
+location or as a pre-loaded dataset. If not, the data will be downloaded
+from the web.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(Cyclones)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="do">##  storms can be singular or plural and can be identified specifically, or not</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="do">##  HURDAT data are relatively limited compared to IBTrACS and may not have full</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="do">##  functionality for wind products, but should be sufficient for precipitation and storm surge.</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">source=</span><span class="st">&quot;hurdat&quot;</span>,<span class="at">name=</span><span class="st">&quot;Camille&quot;</span>,<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">1969</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>storms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">name=</span><span class="fu">c</span>(<span class="st">&quot;Maria&quot;</span>,<span class="st">&quot;IRMA&quot;</span>),<span class="at">basin=</span><span class="st">&quot;NA&quot;</span>,<span class="at">season=</span><span class="dv">2017</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="fu">names</span>(storms)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="do">##  alternatively, all of the data can be downloaded and filtered later</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="do">##  we recommend this if wind models need to be constructed in later steps</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="do">##  downloading all storms or any storm distant historical storm will likely </span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="do">##  require extending the timeout time</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="do">##  options(timeout = 300)</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>allstorms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="at">ib_filt=</span><span class="st">&quot;ALL&quot;</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>storms <span class="ot">&lt;-</span> allstorms[<span class="fu">grep</span>(<span class="st">&quot;CAMILLE_1969|SINLAKU_2026&quot;</span>,<span class="fu">names</span>(allstorms))]</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="do">## the result is a named list of data pertinent to each storm</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="do">## Names are consistent throughout Cyclones and include the name, season, basin, and ID#</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="fu">names</span>(storms)</span></code></pre></div>
 <p>The ‘get_storms()’ function will automatically consolidate variables
 across agencies. If only one value is available for a given variable
 (for example, among the ’_WIND’ variable versions of USA_WIND, WMO_WIND,
@@ -262,14 +272,14 @@ typically in 3hr intervals. The function will also interpolate data to a
 greater frequency using the ‘t_res’ argument, and can incorporate models
 via the ‘mods’ argument to fill in missing extents. See the ‘Winds’
 vignette for more details.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="do">##  generate linestring (default) and polygon (optionally) wind extent features for each timestep </span></span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="do">##  in each storm. When used as shown below with multiple storms as an input, the functions will </span></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="do">##  only perform the action on the first storm</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">make_extents</span>(storms,<span class="at">type=</span><span class="fu">c</span>(<span class="st">&quot;linestrings&quot;</span>,<span class="st">&quot;polygons&quot;</span>))</span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="do">##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="do">##  use the t_res parameter to adjust temporal resolution (in minutes)</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,make_extents)</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="do">##  generate linestring (default) and polygon (optionally) wind extent features for each timestep </span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="do">##  in each storm. When used as shown below with multiple storms as an input, the functions will </span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="do">##  only perform the action on the first storm</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">make_extents</span>(storms,<span class="at">type=</span><span class="fu">c</span>(<span class="st">&quot;linestrings&quot;</span>,<span class="st">&quot;polygons&quot;</span>))</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="do">##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="do">##  use the t_res parameter to adjust temporal resolution (in minutes)</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,make_extents)</span></code></pre></div>
 <p>These spatial features can also be good for certain storm
 visualizations in which a fully gridded raster is not necessary.</p>
 <div class="float">
@@ -314,20 +324,20 @@ layers are projected onto a Lambert Azimuthal Equal Area reference
 system that is centered on the storm’s extent, which preserves area
 across large geographic regions and avoids geographic coordinate issues
 at the 180th meridian.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="do">###  the following will report multiple warnings because the Camille storm does not have any complete wind fields</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="do">###  which are required for most of the different methods. Willoughby includes a theoretical calculation for the</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="do">###  radius of maximum winds, so it is the only method that can be used.</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="do">###  see the &#39;Winds&quot; vignette for more information on included modeled values for these methods</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(windextents,get_wind,<span class="at">methods=</span><span class="fu">c</span>(<span class="st">&quot;all&quot;</span>))</span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="do">###  as discussed above, the layers are wrapped in case parallel processing was used</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="do">###  unwrap them</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a>winds_Camille <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280,unwrap)</span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a>winds_Sinlaku <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152,unwrap)</span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="do">###  they are now stored in separate lists, one for each method</span></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="do">###  they can stay like this or we can combine everything</span></span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>winds_Camille <span class="ot">&lt;-</span> <span class="fu">rast</span>(winds_Camille)</span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>winds_Sinlaku <span class="ot">&lt;-</span> <span class="fu">rast</span>(winds_Sinlaku)</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="do">###  the following will report multiple warnings because the Camille storm does not have any complete wind fields</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="do">###  which are required for most of the different methods. Willoughby includes a theoretical calculation for the</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="do">###  radius of maximum winds, so it is the only method that can be used.</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="do">###  see the &#39;Winds&quot; vignette for more information on included modeled values for these methods</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(windextents,get_wind,<span class="at">methods=</span><span class="fu">c</span>(<span class="st">&quot;all&quot;</span>))</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="do">###  as discussed above, the layers are wrapped in case parallel processing was used</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="do">###  unwrap them</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>winds_Camille <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280,unwrap)</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>winds_Sinlaku <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152,unwrap)</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="do">###  they are now stored in separate lists, one for each method</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="do">###  they can stay like this or we can combine everything</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>winds_Camille <span class="ot">&lt;-</span> <span class="fu">rast</span>(winds_Camille)</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>winds_Sinlaku <span class="ot">&lt;-</span> <span class="fu">rast</span>(winds_Sinlaku)</span></code></pre></div>
 <div class="float">
 <img src="index_files/figure-html/plotwinds1-1.png"
 alt="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the ‘mods’ argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the ‘winds’ vignette." />
@@ -375,63 +385,63 @@ at each source. These will be prompted for when required. Alternatively,
 data could be downloaded manually and held in the
 ‘./<sub>dpath</sub>/source/’ directory, ensuring original filenames are
 retained for loading via ‘get_precip()’.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="do">##  to download the ERA5 website, you must first register with either ECMWF or NASA, or request access to MSWEP:</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="do">##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)</span></span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="do">##  [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)</span></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="do">##  [request access to MSWEP](https://www.gloh2o.org/)</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="do">##  once registered with ECMWF, you will recieve an API token that looks like this:  abcd1234-foo-bar-98765431-XXXXXXXXXX</span></span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="do">##  This will give you access to the data repositories.</span></span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="do">##  To set your api key in R and make it accessible for future use this:</span></span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="do">##  (This only needs to be run once per R installation and setup and should not be run every time) </span></span>
-<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="fu">library</span>(ecmwfr)</span>
-<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="fu">wf_set_key</span>(<span class="at">key =</span> <span class="st">&quot;abcd1234-foo-bar-98765431-XXXXXXXXXX&quot;</span>)</span>
-<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="do">##  or, once registered at nasa earthdata, run the following with your username and password </span></span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="fu">library</span>(earthdatalogin)</span>
-<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="fu">edl_netrc</span>(<span class="at">username =</span> <span class="st">&quot;XXXX&quot;</span>,<span class="at">pasword=</span><span class="st">&quot;XXXX&quot;</span>)</span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a></span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="do">##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):</span></span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="fu">library</span>(googledrive)</span>
-<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="fu">drive_auth</span>()</span>
-<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a></span>
-<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="do">##  The system is now configured to access the data.</span></span>
-<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="do">##  To not have to re-download storm data again, store the files in a local repository</span></span>
-<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="do">##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and re-downloaded in subsequent R sessions)</span></span>
-<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="do">##  either way, the function will provide the resulting rasters, which can be processed and stored as desired</span></span>
-<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="do">##  the default source is ecmwf</span></span>
-<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a>precip <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,get_precip,<span class="at">dpath=</span><span class="st">&quot;./Precipitation&quot;</span>,<span class="at">sources=</span><span class="st">&quot;all&quot;</span>)</span>
-<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a></span>
-<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a>precip</span>
-<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="do">###  results are broken down by storm, source, and also storm and pre-storm (if desired)</span></span>
-<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="do">###  MSWEP or GPM were not available for Camille, but all three are available for Sinlaku</span></span>
-<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="do">###  separate storms and methods</span></span>
-<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a>precip_Camille <span class="ot">&lt;-</span> precip<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280_precip_ecmwf<span class="sc">$</span>storm</span>
-<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a><span class="do">##  not as simple for Sinlaku because the mswep resolution is different than the ecmwf, so must keep them separate</span></span>
-<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a>precip_Sinlaku <span class="ot">&lt;-</span> <span class="fu">list</span>(precip<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152_precip_ecmwf<span class="sc">$</span>storm,</span>
-<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a>                       precip<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152_precip_mswep<span class="sc">$</span>storm)</span>
-<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a></span>
-<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a><span class="do">##  plotting random times in base plot</span></span>
-<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="fu">plot</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]])</span>
-<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="do">##  ggplot gives more funcitonality</span></span>
-<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a>PrecipsCamille_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]],<span class="at">xy=</span><span class="cn">TRUE</span>)</span>
-<span id="cb4-41"><a href="#cb4-41" tabindex="-1"></a><span class="fu">names</span>(PrecipsCamille_df)[<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)] <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">names</span>(PrecipsCamille_df)[<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)],<span class="fu">time</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]]),<span class="at">sep=</span><span class="st">&quot;_&quot;</span>)</span>
-<span id="cb4-42"><a href="#cb4-42" tabindex="-1"></a>PrecipsCamille_df <span class="ot">&lt;-</span>PrecipsCamille_df <span class="sc">|&gt;</span></span>
-<span id="cb4-43"><a href="#cb4-43" tabindex="-1"></a>   tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="at">cols=</span><span class="sc">-</span><span class="fu">c</span>(x,y),<span class="at">names_sep =</span> <span class="st">&quot;_&quot;</span>,<span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">&quot;method&quot;</span>,<span class="st">&quot;unit&quot;</span>,<span class="st">&quot;source&quot;</span>,<span class="st">&quot;time&quot;</span>))</span>
-<span id="cb4-44"><a href="#cb4-44" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>PrecipsCamille_df) <span class="sc">+</span></span>
-<span id="cb4-45"><a href="#cb4-45" tabindex="-1"></a>   <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
-<span id="cb4-46"><a href="#cb4-46" tabindex="-1"></a>  <span class="fu">facet_grid</span>(method<span class="sc">~</span>time)<span class="sc">+</span></span>
-<span id="cb4-47"><a href="#cb4-47" tabindex="-1"></a>   <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Rainfall</span><span class="sc">\n</span><span class="st">(mm/hr)&quot;</span>)<span class="sc">+</span></span>
-<span id="cb4-48"><a href="#cb4-48" tabindex="-1"></a>   <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
-<span id="cb4-49"><a href="#cb4-49" tabindex="-1"></a>   <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb4-50"><a href="#cb4-50" tabindex="-1"></a>   <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_transform</span>(rnaturalearth<span class="sc">::</span><span class="fu">ne_countries</span>(),<span class="fu">crs</span>(PrecipsCamille)),<span class="at">fill=</span><span class="cn">NA</span>,<span class="at">col=</span><span class="st">&quot;black&quot;</span>)<span class="sc">+</span></span>
-<span id="cb4-51"><a href="#cb4-51" tabindex="-1"></a>   <span class="fu">geom_sf_text</span>(<span class="at">data=</span><span class="fu">st_transform</span>(rnaturalearth<span class="sc">::</span><span class="fu">ne_countries</span>(<span class="at">type=</span><span class="st">&quot;tiny_countries&quot;</span>),<span class="fu">crs</span>(PrecipsCamille)),</span>
-<span id="cb4-52"><a href="#cb4-52" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">label =</span> admin), <span class="at">size =</span> <span class="dv">3</span>, <span class="at">check_overlap =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
-<span id="cb4-53"><a href="#cb4-53" tabindex="-1"></a>   <span class="fu">ggtitle</span>(<span class="st">&quot;Hurricane Camille, Precipitation&quot;</span>)<span class="sc">+</span></span>
-<span id="cb4-54"><a href="#cb4-54" tabindex="-1"></a>   <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">1400000</span>,<span class="dv">400000</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="sc">-</span><span class="fl">7e5</span>,<span class="fl">6e5</span>)<span class="sc">+</span></span>
-<span id="cb4-55"><a href="#cb4-55" tabindex="-1"></a>   <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span>
-<span id="cb4-56"><a href="#cb4-56" tabindex="-1"></a></span>
-<span id="cb4-57"><a href="#cb4-57" tabindex="-1"></a><span class="do">###  same code for Sinlaku not shown</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="do">##  to download the ERA5 website, you must first register with either ECMWF or NASA, or request access to MSWEP:</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="do">##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="do">##  [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="do">##  [request access to MSWEP](https://www.gloh2o.org/)</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="do">##  once registered with ECMWF, you will recieve an API token that looks like this:  abcd1234-foo-bar-98765431-XXXXXXXXXX</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="do">##  This will give you access to the data repositories.</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="do">##  To set your api key in R and make it accessible for future use this:</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="do">##  (This only needs to be run once per R installation and setup and should not be run every time) </span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="fu">library</span>(ecmwfr)</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="fu">wf_set_key</span>(<span class="at">key =</span> <span class="st">&quot;abcd1234-foo-bar-98765431-XXXXXXXXXX&quot;</span>)</span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="do">##  or, once registered at nasa earthdata, run the following with your username and password </span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="fu">library</span>(earthdatalogin)</span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="fu">edl_netrc</span>(<span class="at">username =</span> <span class="st">&quot;XXXX&quot;</span>,<span class="at">pasword=</span><span class="st">&quot;XXXX&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="do">##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="fu">library</span>(googledrive)</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="fu">drive_auth</span>()</span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="do">##  The system is now configured to access the data.</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="do">##  To not have to re-download storm data again, store the files in a local repository</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="do">##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and re-downloaded in subsequent R sessions)</span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="do">##  either way, the function will provide the resulting rasters, which can be processed and stored as desired</span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="do">##  the default source is ecmwf</span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a>precip <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,get_precip,<span class="at">dpath=</span><span class="st">&quot;./Precipitation&quot;</span>,<span class="at">sources=</span><span class="st">&quot;all&quot;</span>)</span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a>precip</span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="do">###  results are broken down by storm, source, and also storm and pre-storm (if desired)</span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a><span class="do">###  MSWEP or GPM were not available for Camille, but all three are available for Sinlaku</span></span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="do">###  separate storms and methods</span></span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a>precip_Camille <span class="ot">&lt;-</span> precip<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280_precip_ecmwf<span class="sc">$</span>storm</span>
+<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a><span class="do">##  not as simple for Sinlaku because the mswep resolution is different than the ecmwf, so must keep them separate</span></span>
+<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a>precip_Sinlaku <span class="ot">&lt;-</span> <span class="fu">list</span>(precip<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152_precip_ecmwf<span class="sc">$</span>storm,</span>
+<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a>                       precip<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152_precip_mswep<span class="sc">$</span>storm)</span>
+<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a></span>
+<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a><span class="do">##  plotting random times in base plot</span></span>
+<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a><span class="fu">plot</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]])</span>
+<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a><span class="do">##  ggplot gives more funcitonality</span></span>
+<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a>PrecipsCamille_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]],<span class="at">xy=</span><span class="cn">TRUE</span>)</span>
+<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a><span class="fu">names</span>(PrecipsCamille_df)[<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)] <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="fu">names</span>(PrecipsCamille_df)[<span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>)],<span class="fu">time</span>(precip_Camille[[<span class="dv">100</span><span class="sc">:</span><span class="dv">102</span>]]),<span class="at">sep=</span><span class="st">&quot;_&quot;</span>)</span>
+<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a>PrecipsCamille_df <span class="ot">&lt;-</span>PrecipsCamille_df <span class="sc">|&gt;</span></span>
+<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a>   tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="at">cols=</span><span class="sc">-</span><span class="fu">c</span>(x,y),<span class="at">names_sep =</span> <span class="st">&quot;_&quot;</span>,<span class="at">names_to =</span> <span class="fu">c</span>(<span class="st">&quot;method&quot;</span>,<span class="st">&quot;unit&quot;</span>,<span class="st">&quot;source&quot;</span>,<span class="st">&quot;time&quot;</span>))</span>
+<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span>PrecipsCamille_df) <span class="sc">+</span></span>
+<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a>   <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
+<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a>  <span class="fu">facet_grid</span>(method<span class="sc">~</span>time)<span class="sc">+</span></span>
+<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a>   <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Rainfall</span><span class="sc">\n</span><span class="st">(mm/hr)&quot;</span>)<span class="sc">+</span></span>
+<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a>   <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
+<span id="cb5-49"><a href="#cb5-49" tabindex="-1"></a>   <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb5-50"><a href="#cb5-50" tabindex="-1"></a>   <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_transform</span>(rnaturalearth<span class="sc">::</span><span class="fu">ne_countries</span>(),<span class="fu">crs</span>(PrecipsCamille)),<span class="at">fill=</span><span class="cn">NA</span>,<span class="at">col=</span><span class="st">&quot;black&quot;</span>)<span class="sc">+</span></span>
+<span id="cb5-51"><a href="#cb5-51" tabindex="-1"></a>   <span class="fu">geom_sf_text</span>(<span class="at">data=</span><span class="fu">st_transform</span>(rnaturalearth<span class="sc">::</span><span class="fu">ne_countries</span>(<span class="at">type=</span><span class="st">&quot;tiny_countries&quot;</span>),<span class="fu">crs</span>(PrecipsCamille)),</span>
+<span id="cb5-52"><a href="#cb5-52" tabindex="-1"></a>                <span class="fu">aes</span>(<span class="at">label =</span> admin), <span class="at">size =</span> <span class="dv">3</span>, <span class="at">check_overlap =</span> <span class="cn">TRUE</span>) <span class="sc">+</span></span>
+<span id="cb5-53"><a href="#cb5-53" tabindex="-1"></a>   <span class="fu">ggtitle</span>(<span class="st">&quot;Hurricane Camille, Precipitation&quot;</span>)<span class="sc">+</span></span>
+<span id="cb5-54"><a href="#cb5-54" tabindex="-1"></a>   <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">1400000</span>,<span class="dv">400000</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="sc">-</span><span class="fl">7e5</span>,<span class="fl">6e5</span>)<span class="sc">+</span></span>
+<span id="cb5-55"><a href="#cb5-55" tabindex="-1"></a>   <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span>
+<span id="cb5-56"><a href="#cb5-56" tabindex="-1"></a></span>
+<span id="cb5-57"><a href="#cb5-57" tabindex="-1"></a><span class="do">###  same code for Sinlaku not shown</span></span></code></pre></div>
 <div class="float">
 <img src="index_files/figure-html/plot_precip-1.png"
 alt="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998." />
@@ -477,63 +487,63 @@ high-performance machines if higher spatial or temporal resolution were
 requested. For now, get_surge() products are limited to one layer only
 of the maximum surge depth, and at a moderate spatial resolution of 10
 km.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="do">###  as with precipitation, surge requires some pre-registration before remote access to the data</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="do">###  Elevation comes from the NASA Shuttle Radar Topography Mission</span></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="do">###  it is obtained through the same earthdatalogin methods as the Global Precipitation Mission</span></span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="do">###  so if that was already setup, it should be ready</span></span>
-<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="do">###  if not, see earthdatalogin for permanent registration and setup</span></span>
-<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="do">###  unlike water levels, elevation data is constant for a given area, regardless of the storm time</span></span>
-<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="do">###  so, once data for a location has been downloaded (and saved utilizing the dpath arg) it can be</span></span>
-<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="do">###  directly accessed without downloading for future analyses over the same area</span></span>
-<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="do">###  likewise, CMIP6 data is obtained through the European Centre for Medium-Range Weather Forecasts (ecmwf)</span></span>
-<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="do">###  so, if that was already setup for the precipitation data, it will serve here as well</span></span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="do">###  if not, see ecmwfr::wf_get_key() and ecmwfr::wf_set_key() for setup</span></span>
-<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="do">###  for storms after 2024, CMIP6 does not offer daily maximum water levels, only 10 min interval levels</span></span>
-<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="do">###  so, these downloads will take considerably longer</span></span>
-<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a></span>
-<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="do">###  NOAA water levels are retrieved through an anonymous api, so no pre-registration is required</span></span>
-<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="do">###  more info here: https://api.tidesandcurrents.noaa.gov/api/prod/</span></span>
-<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="do">###  It should be noted that the server does implement throttling</span></span>
-<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="do">###  Cyclones methods doe introduce sleep statements to prevent throttling, but users may still encounter issues </span></span>
-<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="do">###  when requesting large amounts of data</span></span>
-<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a></span>
-<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="do">###  Finally, USGS water level data is also retreived though a semi-anonymous API</span></span>
-<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="do">###  Users may introduce their own api key, which can be obtained here: https://api.waterdata.usgs.gov/signup/</span></span>
-<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="do">###  This is not necessary, however, as data will still be retreived without a key</span></span>
-<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="do">###  but it may boost performance</span></span>
-<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a></span>
-<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="do">### as with the other functions, dpath will save component data in a directory for direct future access (no download necessary)</span></span>
-<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a>surge_Camille <span class="ot">&lt;-</span> <span class="fu">get_surge</span>(storms<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280,<span class="at">dpath=</span><span class="st">&quot;./Storm Surge/&quot;</span>)</span>
-<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a>surge_Sinlaku <span class="ot">&lt;-</span> <span class="fu">get_surge</span>(storms<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152,<span class="at">dpath=</span><span class="st">&quot;./Storm Surge/&quot;</span>)</span>
-<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a></span>
-<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a></span>
-<span id="cb5-33"><a href="#cb5-33" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span><span class="fu">as.data.frame</span>(surge_Sinlaku<span class="sc">$</span>rast,<span class="at">xy=</span><span class="cn">TRUE</span>)<span class="sc">|&gt;</span><span class="fu">rename</span>(<span class="at">value=</span><span class="dv">3</span>)<span class="sc">|&gt;</span></span>
-<span id="cb5-34"><a href="#cb5-34" tabindex="-1"></a>         <span class="fu">filter</span>(x<span class="sc">&lt;</span><span class="dv">146</span>,x<span class="sc">&gt;</span><span class="dv">145</span>,y<span class="sc">&lt;</span><span class="fl">15.5</span>,y<span class="sc">&gt;</span><span class="dv">14</span>)) <span class="sc">+</span></span>
-<span id="cb5-35"><a href="#cb5-35" tabindex="-1"></a>  <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
-<span id="cb5-36"><a href="#cb5-36" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Surge level</span><span class="sc">\n</span><span class="st">above MHHW</span><span class="sc">\n</span><span class="st">(m)&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-37"><a href="#cb5-37" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-38"><a href="#cb5-38" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb5-39"><a href="#cb5-39" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_as_sf</span>(surge_Sinlaku<span class="sc">$</span>points,<span class="at">coords=</span><span class="fu">c</span>(<span class="st">&quot;lon&quot;</span>,<span class="st">&quot;lat&quot;</span>),<span class="at">crs=</span><span class="dv">4326</span>),<span class="fu">aes</span>(<span class="at">col=</span>source))<span class="sc">+</span></span>
-<span id="cb5-40"><a href="#cb5-40" tabindex="-1"></a>  <span class="co">#geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(windsSinmsw)),</span></span>
-<span id="cb5-41"><a href="#cb5-41" tabindex="-1"></a>  <span class="co">#             aes(label = admin), size = 3, check_overlap = TRUE) +</span></span>
-<span id="cb5-42"><a href="#cb5-42" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Typhoon Sinlaku Storm Surge at Northern Mariana Islands&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-43"><a href="#cb5-43" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">145</span>,<span class="dv">146</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="dv">14</span>,<span class="fl">15.5</span>)<span class="sc">+</span></span>
-<span id="cb5-44"><a href="#cb5-44" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span>
-<span id="cb5-45"><a href="#cb5-45" tabindex="-1"></a></span>
-<span id="cb5-46"><a href="#cb5-46" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span><span class="fu">as.data.frame</span>(<span class="fu">crop</span>(surge_Camille<span class="sc">$</span>rast,<span class="fu">ext</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">93</span>,<span class="sc">-</span><span class="dv">83</span>,<span class="dv">28</span>,<span class="dv">32</span>))),<span class="at">xy=</span><span class="cn">TRUE</span>)<span class="sc">|&gt;</span><span class="fu">rename</span>(<span class="at">value=</span><span class="dv">3</span>)) <span class="sc">+</span></span>
-<span id="cb5-47"><a href="#cb5-47" tabindex="-1"></a>  <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
-<span id="cb5-48"><a href="#cb5-48" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Surge level</span><span class="sc">\n</span><span class="st">above MHHW</span><span class="sc">\n</span><span class="st">(m)&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-49"><a href="#cb5-49" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-50"><a href="#cb5-50" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb5-51"><a href="#cb5-51" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_as_sf</span>(surge_Camille<span class="sc">$</span>points,<span class="at">coords=</span><span class="fu">c</span>(<span class="st">&quot;lon&quot;</span>,<span class="st">&quot;lat&quot;</span>),<span class="at">crs=</span><span class="dv">4326</span>),<span class="fu">aes</span>(<span class="at">col=</span>source))<span class="sc">+</span></span>
-<span id="cb5-52"><a href="#cb5-52" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span>windextents<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280<span class="sc">|&gt;</span><span class="fu">filter</span>(location<span class="sc">==</span><span class="st">&quot;track&quot;</span>),<span class="at">lty=</span><span class="dv">2</span>)<span class="sc">+</span></span>
-<span id="cb5-53"><a href="#cb5-53" tabindex="-1"></a>  <span class="co">#geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(windsSinmsw)),</span></span>
-<span id="cb5-54"><a href="#cb5-54" tabindex="-1"></a>  <span class="co">#             aes(label = admin), size = 3, check_overlap = TRUE) +</span></span>
-<span id="cb5-55"><a href="#cb5-55" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Hurricane Camille Storm Surge at Louisiana&quot;</span>)<span class="sc">+</span></span>
-<span id="cb5-56"><a href="#cb5-56" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">93</span>,<span class="sc">-</span><span class="dv">83</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="dv">28</span>,<span class="dv">32</span>)<span class="sc">+</span></span>
-<span id="cb5-57"><a href="#cb5-57" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="do">###  as with precipitation, surge requires some pre-registration before remote access to the data</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="do">###  Elevation comes from the NASA Shuttle Radar Topography Mission</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="do">###  it is obtained through the same earthdatalogin methods as the Global Precipitation Mission</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="do">###  so if that was already setup, it should be ready</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="do">###  if not, see earthdatalogin for permanent registration and setup</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="do">###  unlike water levels, elevation data is constant for a given area, regardless of the storm time</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="do">###  so, once data for a location has been downloaded (and saved utilizing the dpath arg) it can be</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="do">###  directly accessed without downloading for future analyses over the same area</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="do">###  likewise, CMIP6 data is obtained through the European Centre for Medium-Range Weather Forecasts (ecmwf)</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="do">###  so, if that was already setup for the precipitation data, it will serve here as well</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="do">###  if not, see ecmwfr::wf_get_key() and ecmwfr::wf_set_key() for setup</span></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="do">###  for storms after 2024, CMIP6 does not offer daily maximum water levels, only 10 min interval levels</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="do">###  so, these downloads will take considerably longer</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="do">###  NOAA water levels are retrieved through an anonymous api, so no pre-registration is required</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="do">###  more info here: https://api.tidesandcurrents.noaa.gov/api/prod/</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="do">###  It should be noted that the server does implement throttling</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="do">###  Cyclones methods doe introduce sleep statements to prevent throttling, but users may still encounter issues </span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="do">###  when requesting large amounts of data</span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="do">###  Finally, USGS water level data is also retreived though a semi-anonymous API</span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="do">###  Users may introduce their own api key, which can be obtained here: https://api.waterdata.usgs.gov/signup/</span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="do">###  This is not necessary, however, as data will still be retreived without a key</span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="do">###  but it may boost performance</span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="do">### as with the other functions, dpath will save component data in a directory for direct future access (no download necessary)</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a>surge_Camille <span class="ot">&lt;-</span> <span class="fu">get_surge</span>(storms<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280,<span class="at">dpath=</span><span class="st">&quot;./Storm Surge/&quot;</span>)</span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a>surge_Sinlaku <span class="ot">&lt;-</span> <span class="fu">get_surge</span>(storms<span class="sc">$</span>SINLAKU_2026_WP_2026099N09152,<span class="at">dpath=</span><span class="st">&quot;./Storm Surge/&quot;</span>)</span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a></span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a></span>
+<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span><span class="fu">as.data.frame</span>(surge_Sinlaku<span class="sc">$</span>rast,<span class="at">xy=</span><span class="cn">TRUE</span>)<span class="sc">|&gt;</span><span class="fu">rename</span>(<span class="at">value=</span><span class="dv">3</span>)<span class="sc">|&gt;</span></span>
+<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a>         <span class="fu">filter</span>(x<span class="sc">&lt;</span><span class="dv">146</span>,x<span class="sc">&gt;</span><span class="dv">145</span>,y<span class="sc">&lt;</span><span class="fl">15.5</span>,y<span class="sc">&gt;</span><span class="dv">14</span>)) <span class="sc">+</span></span>
+<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a>  <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
+<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Surge level</span><span class="sc">\n</span><span class="st">above MHHW</span><span class="sc">\n</span><span class="st">(m)&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_as_sf</span>(surge_Sinlaku<span class="sc">$</span>points,<span class="at">coords=</span><span class="fu">c</span>(<span class="st">&quot;lon&quot;</span>,<span class="st">&quot;lat&quot;</span>),<span class="at">crs=</span><span class="dv">4326</span>),<span class="fu">aes</span>(<span class="at">col=</span>source))<span class="sc">+</span></span>
+<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a>  <span class="co">#geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(windsSinmsw)),</span></span>
+<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a>  <span class="co">#             aes(label = admin), size = 3, check_overlap = TRUE) +</span></span>
+<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Typhoon Sinlaku Storm Surge at Northern Mariana Islands&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">145</span>,<span class="dv">146</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="dv">14</span>,<span class="fl">15.5</span>)<span class="sc">+</span></span>
+<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span>
+<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a></span>
+<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a><span class="fu">ggplot</span>(<span class="at">data=</span><span class="fu">as.data.frame</span>(<span class="fu">crop</span>(surge_Camille<span class="sc">$</span>rast,<span class="fu">ext</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">93</span>,<span class="sc">-</span><span class="dv">83</span>,<span class="dv">28</span>,<span class="dv">32</span>))),<span class="at">xy=</span><span class="cn">TRUE</span>)<span class="sc">|&gt;</span><span class="fu">rename</span>(<span class="at">value=</span><span class="dv">3</span>)) <span class="sc">+</span></span>
+<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a>  <span class="fu">geom_raster</span>(<span class="fu">aes</span>(<span class="at">x=</span>x,<span class="at">y=</span>y,<span class="at">fill=</span>value))<span class="sc">+</span></span>
+<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">n=</span><span class="dv">10</span>,<span class="at">na.value =</span> <span class="st">&quot;transparent&quot;</span>,<span class="at">name=</span><span class="st">&quot;Surge level</span><span class="sc">\n</span><span class="st">above MHHW</span><span class="sc">\n</span><span class="st">(m)&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a>  <span class="fu">coord_sf</span>(<span class="at">crs =</span><span class="st">&quot;+proj=robin +lon_0=180&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span><span class="fu">st_as_sf</span>(surge_Camille<span class="sc">$</span>points,<span class="at">coords=</span><span class="fu">c</span>(<span class="st">&quot;lon&quot;</span>,<span class="st">&quot;lat&quot;</span>),<span class="at">crs=</span><span class="dv">4326</span>),<span class="fu">aes</span>(<span class="at">col=</span>source))<span class="sc">+</span></span>
+<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data=</span>windextents<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280<span class="sc">|&gt;</span><span class="fu">filter</span>(location<span class="sc">==</span><span class="st">&quot;track&quot;</span>),<span class="at">lty=</span><span class="dv">2</span>)<span class="sc">+</span></span>
+<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a>  <span class="co">#geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(windsSinmsw)),</span></span>
+<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a>  <span class="co">#             aes(label = admin), size = 3, check_overlap = TRUE) +</span></span>
+<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Hurricane Camille Storm Surge at Louisiana&quot;</span>)<span class="sc">+</span></span>
+<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="sc">-</span><span class="dv">93</span>,<span class="sc">-</span><span class="dv">83</span>)<span class="sc">+</span><span class="fu">ylim</span>(<span class="dv">28</span>,<span class="dv">32</span>)<span class="sc">+</span></span>
+<span id="cb6-57"><a href="#cb6-57" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.title =</span> <span class="fu">element_blank</span>(),<span class="at">panel.grid=</span><span class="fu">element_blank</span>())</span></code></pre></div>
 <div class="float">
 <img src="index_files/figure-html/plot_surge-1.png"
 alt="Fig 5. Results of get_surge() are a single layer only, representing the maximum surge depth above ground for each location during the storm, as well as a corresponding summary table of water level observations. Surge depth is a simple difference between a nearby water level observation and the ground elevation. Only depths greater than the mean high high tide are returned. For storms outside of United States jurisdictions, and for any storm before 2000, water level observations are scarce and the CMIP6 model is usually used instead. This model is known to underestimate extreme surge values. Water level sources can be viewed via the corresponding table produced for each storm." />

@@ -10,7 +10,8 @@ vignette: >
 ---
 
 # Highlights
-* Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
+* Produce raster images of cyclone winds, rains, and storm surge, either at 
+specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions
 
 # Future Implementation Ideas
@@ -24,25 +25,50 @@ vignette: >
 * Integrate SLOSH for storm surge
 
 # Installation
-For now Cyclones is hosted only GitHub and the most current stable version can be installed via the steps below. A development version is also available but may be unstable as new issues are addressed.
+For now Cyclones is hosted only GitHub and the most current stable version can 
+be installed via the steps below. A development version is also available but 
+may be unstable as new issues are addressed.
 ```{r install,eval=FALSE}
 # install.packages("remotes")
 remotes::install_github("BBranoff/Cyclones")
 ```
 
 # Introduction
-R utilities for producing variable temporal and spatial resolution gridded and time-stacked representations of tropical cyclone wind, precipitation, and storm surge.
+R utilities for producing variable temporal and spatial resolution gridded and 
+time-stacked representations of tropical cyclone wind, precipitation, and storm 
+surge.
 
-A note on lists, rasters, wrapping, and parallelization. Most of the functions in 'Cyclones' produce and operate over lists, primarily because they work nicely with lapply() and its parallel equivalents. This makes it relatively easy to process multiple storms in parallel or to process a single storm in parallel. However, raster data via 'terra' can not be passed across parallel workers unless they are wrapped. Thus, for now, the raster products in Cyclones will always be wrapped and must first be unwrapped before they can be utilized in traditional workflows.  
+A note on lists, rasters, wrapping, and parallelization. Most of the functions 
+in 'Cyclones' produce and operate over lists, primarily because they work nicely
+with lapply() and its parallel equivalents. This makes it relatively easy to 
+process multiple storms in parallel or to process a single storm in parallel. 
+However, raster data via 'terra' can not be passed across parallel workers 
+unless they are wrapped. Thus, for now, the raster products in Cyclones will 
+always be wrapped and must first be unwrapped before they can be utilized in 
+traditional workflows.  
 
-Parallel processing is mostly only necessary for multiple storms or for high resolution outputs and we recommend users familiarize themselves with the sequential default functions and only then utilize parallel when ready for batch processing. For internal functions, parallelism is done via snowfall at the timestep level. This is best for high resolution (both temporal (\<15 mins) and/or spatial (\<10000 m)) outputs and especially when producing Thin Plate Spline (TPS) outputs, and is probably best utilized if at least 5-10 cpus could be set aside for the effort, but there hasnt been any in-depth test of performance yet. Parallelizing at the storm level is demonstrated below in the vignettes, but could be done with other libraries at the user's discretion and also could be done with only a few (\<5) cpus. The functions will not allow you to do both internal and external parallelization, but otherwise, the user is expected to know how many cpus can be safely utilized on their system.
+Parallel processing is mostly only necessary for multiple storms or for high 
+resolution outputs and we recommend users familiarize themselves with the 
+sequential default functions and only then utilize parallel when ready for batch
+processing. For internal functions, parallelism is done via snowfall at the 
+timestep level. This is best for high resolution (both temporal (\<15 mins) 
+and/or spatial (\<10000 m)) outputs and especially when producing Thin Plate 
+Spline (TPS) outputs, and is probably best utilized if at least 5-10 cpus could 
+be set aside for the effort, but there hasnt been any in-depth test of 
+performance yet. Parallelizing at the storm level is demonstrated below in the 
+vignettes, but could be done with other libraries at the user's discretion and 
+also could be done with only a few (\<5) cpus. The functions will not allow you 
+to do both internal and external parallelization, but otherwise, the user is 
+expected to know how many cpus can be safely utilized on their system.
 
 # Get Storm Tabular Data
 Use the ‘get_storms()’ function to gather the available time series,
 location, and meteorological information for a particular storm. If a local, 
-pre-downloaded IBTrACS .csv or .nc data source is available, it can be used, 
-either as the file location or as a pre-loaded dataset. If not, the data will be
-downloaded from the web.
+pre-downloaded 
+[IBTrACS](https://www.ncei.noaa.gov/products/international-best-track-archive) 
+.csv or .nc data source is available, it can be used, either as the file 
+location or as a pre-loaded dataset. If not, the data will be downloaded from 
+the web.
 
 ```{r load-data,echo=FALSE,results='hide',message=FALSE,warning=FALSE}
 devtools::load_all()
@@ -80,10 +106,34 @@ storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 names(storms)
 ```
 
-The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But, many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the other agency values will first be converted to "1 minute" intervals using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. 
+The 'get_storms()' function will automatically consolidate variables across 
+agencies. If only one value is available for a given variable (for example, 
+among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND 
+etc.), it will be used. But, many storms reflect reporting from multiple 
+agencies that need to be consolidated in some way for further processing. 
+Because the 'USA' variables have less missing values than the other agencies 
+across the entire dataset, they are prioritized by default and will be used if 
+other agency values are present. If the preferred agency is not present, all the
+other values will be averaged as the consolidated value. However, it is 
+important to note that the USA uses 1 minute intervals to define maximum 
+sustained winds, while most of the rest of the world uses 10 minute intervals. 
+Thus, the other agency values will first be converted to "1 minute" intervals 
+using a linear relationship based on the full dataset. No consolidation is 
+achieved by setting 'consolidate' to FALSE. Other consolidation preferences can 
+be stipulated by using arguments from the 'cons_stormdat()' function, such as 
+'pref' = "WMO" to preference the World Meteorological Organization values 
+instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes
+instead. Alternatively, the 'cons_stormdat()' function can be used after 
+'get_storms(consolidate=FALSE)'. 
 
 ## Make Wind Extent Spatial Features
-In some cases, it may be desired to produce simple spatial features of important storm extents, such as the radius of maximum wind, the eye wall diameter, or the radius of the last closed isobar (ROCI). The make_extents() function will do this utilizing the native data, which is typically in 3hr intervals. The function will also interpolate data to a greater frequency using the 't_res' argument, and can incorporate models via the 'mods' argument to fill in missing extents. See the 'Winds' vignette for more details. 
+In some cases, it may be desired to produce simple spatial features of important
+storm extents, such as the radius of maximum wind, the eye wall diameter, or the
+radius of the last closed isobar (ROCI). The make_extents() function will do 
+this utilizing the native data, which is typically in 3hr intervals. The 
+function will also interpolate data to a greater frequency using the 't_res' 
+argument, and can incorporate models via the 'mods' argument to fill in missing 
+extents. See the 'Winds' vignette for more details. 
 
 ```{r false-windextents,eval=FALSE}
 ##  generate linestring (default) and polygon (optionally) wind extent features for each timestep 
@@ -97,7 +147,10 @@ windextents <- lapply(storms,make_extents)
 
 ```
 
-These spatial features can also be good for certain storm visualizations in which a fully gridded raster is not necessary.
+These spatial features can also be good for certain storm visualizations in 
+which a fully gridded raster is not necessary. The below figure demonstrate how
+these simple features represent the various extents, and how the interpolated 
+and modeled features compare to the native features. 
 
 ```{r plot-extents, echo=FALSE, message=FALSE,warning=FALSE,fig.width=7,fig.height=3,fig.cap = "Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in 'make_extents()', there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map." }
 library(ggplot2)
