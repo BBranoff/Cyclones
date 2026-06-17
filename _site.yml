@@ -3,12 +3,10 @@ output_dir: "docs"
 navbar:
   title: "Vignettes"
   left:
-    - text: "Home"
+    - text: "Introduction"
       href: index.html
     - text: "Winds"
       href: Winds.html
-    - text: "Rains"
-      href: Rains.html
     - text: "Storm Surge"
       href: Storm-Surge.html
 output:
