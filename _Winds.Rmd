@@ -9,12 +9,6 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
-```
 The following methods demonstrate some of the more detailed capabilities of the 
 wind products from Cyclones. This includes:
 ** Modeling wind extents for storms with incomplete data

@@ -1,14 +1,13 @@
 name: "Cyclones"
 output_dir: "docs"
+new_session: true
 navbar:
   title: "Vignettes"
   left:
     - text: "Introduction"
       href: index.html
-    - text: "Winds"
-      href: Winds.html
-    - text: "Storm Surge"
-      href: Storm-Surge.html
+    - text: "Rains"
+      href: Rains.html
 output:
   html_document:
     theme: cosmo
