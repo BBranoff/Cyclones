@@ -1,0 +1,15 @@
+name: "Cyclones"
+output_dir: "docs"
+navbar:
+  title: "My Site"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Winds"
+      href: winds.html
+    - text: "Rains"
+      href: rains.html
+output:
+  html_document:
+    theme: cosmo
+    highlight: textmate
