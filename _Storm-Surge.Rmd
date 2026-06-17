@@ -1,11 +1,4 @@
 ---
 title: "Storm-Surge"
-output: 
-  rmarkdown::html_vignette:
-    fig_caption: yes
-vignette: >
-  %\VignetteIndexEntry{Storm-Surge}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 

@@ -1,12 +1,5 @@
 ---
 title: "Rains"
-output: 
-  rmarkdown::html_vignette:
-    fig_caption: yes
-vignette: >
-  %\VignetteIndexEntry{Rains}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 # Get Precipitation Products

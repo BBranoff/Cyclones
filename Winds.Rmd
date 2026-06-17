@@ -1,12 +1,5 @@
 ---
 title: "Winds"
-output: 
-  rmarkdown::html_vignette:
-    fig_caption: yes
-vignette: >
-  %\VignetteIndexEntry{Winds}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
 The following methods demonstrate some of the more detailed capabilities of the 
