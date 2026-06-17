@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Winds</title>
+
+<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<link rel="stylesheet" href="C:/Users/BenjaminBranoff/AppData/Local/R/win-library/4.5/rmarkdown/rmarkdown/templates/html_vignette/resources/vignette.css" type="text/css" />
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Winds</h1>
+
+
+
+<p>The following methods demonstrate some of the more detailed
+capabilities of the wind products from Cyclones. This includes: **
+Modeling wind extents for storms with incomplete data ** Building high
+resolution wind rasters at specific timesteps ** Compare rasters with
+hurricane hunter reconnaissance drop sonde data</p>
+<div id="get-storm-tabular-data" class="section level1">
+<h1>Get Storm Tabular Data</h1>
+<p>Use the ‘get_storms()’ function to gather the available time series,
+location, and meteorological information for a particular storm. If a
+local, pre-downloaded IBTrACS .csv or .nc data source is available, it
+can be used, either as the file location or as a pre-loaded dataset. If
+not, the data will be downloaded from the web.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(Cyclones)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="do">##  reading from a local copy</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>allstorms <span class="ot">&lt;-</span> <span class="fu">get_storms</span>(<span class="st">&quot;./ibtracs.ALL.list.v04r01.csv&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="do">##  downloading instead, will need to increase download timeout option</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co"># options(timeout = 400)</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="co"># allstorms &lt;- get_storms(ib_filt=&quot;all&quot;)</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="do">##  separate the storms of interest for this vignette</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>storms <span class="ot">&lt;-</span> allstorms[<span class="fu">grep</span>(<span class="st">&quot;CAMILLE_1969|SINLAKU_2026&quot;</span>,<span class="fu">names</span>(allstorms))]</span></code></pre></div>
+</div>
+<div id="get-wind-products" class="section level1">
+<h1>Get Wind Products</h1>
+<p>With the tabular data loaded, they can now be used to build wind
+rasters.</p>
+<div id="build-extent-models" class="section level2">
+<h2>Build Extent Models</h2>
+<p>If linear extents of wind speeds and cyclone regions (eye, radius of
+last closed isobar (ROCI)) are needed, or if the Thin Plate Spline (TPS)
+wind method is desired, wind extent models are built into a lookup table
+(The empirical TPS method is shown below to be more accurate than the
+theoretical models). These lookup tables should be based on as full or
+limited a set of storms as necessary for the objective. For generalized
+modeling, its best to use a full set of storms (ib_filt=“all” in the
+above get_storms() call).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="do">## build the models based on the entire storm dataset.  </span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="do">## The models are built into lookup tables, </span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="do">## with a different model for every quadrant of the storm, </span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="do">## for every storm size and in every basin. </span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>mods <span class="ot">&lt;-</span> <span class="fu">build_models</span>(allstorms)</span></code></pre></div>
+</div>
+<div id="make-wind-extent-spatial-features" class="section level2">
+<h2>Make Wind Extent Spatial Features</h2>
+<p>The above models will allow the reconstruction of certain wind and
+pressure extents when missing, which is often the case for older (pre
+2018) storms. These are particularly useful when using the Thin Plate
+Spline method for wind modelling, as it allows for the creation of wind
+field predictions specific to each quadrant and each basin and each
+storm category based on the other storms in the data. If generalized,
+mostly symmetrical wind fields are desired, the other non-TPS methods
+can be used as explained further below. However those often use the
+radius of maximum wind (RMW), which is also often missing in older
+storms and can be estimated using the models from ‘build_models()’.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="do">##  generate linestring (default) and polygon (optionally) wind extent features </span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="do">##  for each timestep </span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="do">##  in each storm. When used as shown below with multiple storms as an input, </span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="do">##  the functions will only perform the action on the first storm</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">make_extents</span>(storms,<span class="at">mods=</span>mods,<span class="at">type=</span><span class="fu">c</span>(<span class="st">&quot;linestrings&quot;</span>,<span class="st">&quot;polygons&quot;</span>))</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="do">##  which is equivalent to</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>windextent_1 <span class="ot">&lt;-</span> <span class="fu">make_extents</span>(storms[[<span class="dv">1</span>]],<span class="at">mods=</span>mods,<span class="at">type=</span><span class="fu">c</span>(<span class="st">&quot;linestrings&quot;</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a>                                                          <span class="st">&quot;polygons&quot;</span>))</span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="do">##  To apply the function to all storms, use lapply or a parallel equivalent </span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="do">##  (snowfall::sfLapply)</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="do">##  Can also decrease the timestep from the 3-hour default, which will </span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="do">##  interpolate positions and meteorological data. Native, interpolated, and </span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="do">##  modeled data are indicated in the final product</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,make_extents, <span class="at">mods=</span>mods,<span class="at">t_res=</span><span class="dv">30</span>)</span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="do">##  To perform internal parallelization (over individual timesteps), include the</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="do">##  cpus argument</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="do">##  note:: this is probably only really beneficial for very high resolution </span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="do">##  timesteps</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">lapply</span>(storms,make_extents, <span class="at">mods=</span>mods,<span class="at">t_res=</span><span class="dv">15</span>,<span class="at">cpus=</span><span class="dv">10</span>)</span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="do">## parallel over multiple storms</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="fu">library</span>(snowfall)</span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="fu">sfInit</span>(<span class="at">parallel=</span><span class="cn">TRUE</span>, <span class="at">cpus=</span><span class="dv">2</span>) </span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="fu">sfLibrary</span>(sf)</span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="fu">sfLibrary</span>(terra)</span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="fu">sfLibrary</span>(dplyr)</span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a>windextents <span class="ot">&lt;-</span> <span class="fu">sfLapply</span>(storms,make_extents, <span class="at">mods=</span>mods,<span class="at">t_res=</span><span class="dv">30</span>)</span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="do">##  be sure to close parallel workers</span></span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="fu">sfStop</span>()</span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="do">##  If both linestrings and polygons were returned, they can be pulled out</span></span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a>linestrings <span class="ot">&lt;-</span> <span class="fu">lapply</span>(windextents,<span class="cf">function</span>(x) x[<span class="fu">st_geometry_type</span>(x)<span class="sc">==</span><span class="st">&quot;LINESTRING&quot;</span>,])</span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a>polygons <span class="ot">&lt;-</span> <span class="fu">lapply</span>(windextents,<span class="cf">function</span>(x) x[<span class="fu">st_geometry_type</span>(x)<span class="sc">==</span><span class="st">&quot;POLYGON&quot;</span>,])</span>
+<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a><span class="do">##  the individual storms are projected in their own crs, centered on the storm.</span></span>
+<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a><span class="do">##  To get them all in the same CRS, if desired</span></span>
+<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a>linestrings <span class="ot">&lt;-</span> <span class="fu">lapply</span>(linestrings,st_transform,<span class="at">crs=</span><span class="dv">4326</span>)</span></code></pre></div>
+<p>These spatial features can also be good for certain storm
+visualizations in which a fully gridded raster is unnecessary or
+otherwise unfit for the display objectives. In the below figure, the top
+panel shows the various extents for thr native timesteps only of our two
+storms. The lower figure better demonstrates the difference between the
+native and modeled data, with the older Camille generally lacking any
+native data when compared to the more recent Sinlaku. Still, Sinlaku
+native data is missing some of the lower wind extents that would
+normally be included in a modern North Atlantic storm.</p>
+<div class="float">
+<img src="Winds_files/figure-html/plot-extents-1.png"
+alt="Fig 1. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the ‘mods’ argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps." />
+<div class="figcaption">Fig 1. The results of make_extents() are storm
+tracks, as well as outer limits of various wind and pressure values. If
+t_res was utilized, interpolated features are also created to fill in
+the missing times. Additionally, the ‘mods’ argument can be used to
+model wind and pressure values that are missing, which is usually the
+case for older storms or sometimes for storms outside of USA
+jurisdiction. In this case, an older storm (Camille) has very little
+native information. Because we used modeling to fill in the missing
+extents, there are a mix of native and modeled features, as well as
+interpolated features between the native time steps.</div>
+</div>
+</div>
+<div id="build-wind-rasters" class="section level2">
+<h2>Build Wind Rasters</h2>
+<p>Next, we interpolate and/or model the winds across space and time,
+creating a more complete gridded representation that can be useful in
+any number of applications. This is accomplished through either one of
+three theoretical models, or through a more empirical Thin Plate Spline,
+which utilizes the above linestrings, which in this case were generated
+from a set of models. Because we used models here, all methods should
+produce a set of rasters, in contrast to the simple method employed in
+the introductory vignette, which did not use models and as a result
+could not produce all methods for the older Camille storm.</p>
+<p>The ‘make_winds’ function accepts a spatial resolution specification
+and will match the temporal resolution of the input wind extents.
+Although accuracy and smoothness are optimized at higher resolutions,
+computation times suffer. For initial testing, a spatial resolution of
+20000 m and a temporal resolution of 60 mins is reasonable and default.
+Because terra::raster objects are saved on disc rather than memory, they
+can not be passed and collected as part of parallel processes.
+Therefore, results from get_wind and other functions are wrapped rasters
+in case a parallel operation is desired. They must be separated and
+unwrapped with a simple ‘unwrap()’ call before they can be used for most
+operations. All storm layers are projected onto a Lambert Azimuthal
+Equal Area reference system that is centered on the storm’s extent,
+which preserves area across large geographic regions and avoids
+geographic coordinate issues at the 180th meridian.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(windextents,get_wind,<span class="at">methods=</span><span class="fu">c</span>(<span class="st">&quot;all&quot;</span>))</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="do">### unwrap files in memory</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds, <span class="cf">function</span>(x) <span class="fu">lapply</span>(x,unwrap))</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">names</span>(winds)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="do">## load files saved to disk from the above (if &#39;todir&#39; was used)</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds, <span class="cf">function</span>(x) <span class="fu">rast</span>(<span class="fu">unlist</span>(x)))</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="do">## load files saved to disk previously, providing the directory names as saved</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="do">## in this case, if files were saved other than the working directory, provide </span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="do">## that as the &#39;todir&#39; argument</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="fu">list</span>(<span class="st">&quot;CAMILLE1969_20000_30&quot;</span>,<span class="st">&quot;SINLAKU2026_20000_30&quot;</span>),get_wind)</span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">unlist</span>(winds)</span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="do">## the layers are stored in nested lists in which individual time steps are </span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="do">## nested within each storm and each method</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>windsCamille_tps <span class="ot">&lt;-</span> winds<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280[[<span class="dv">1</span>]]</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="fu">plot</span>(windsCamille_tps[[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]])</span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="do">##  compute only one storm at a time, utilizing internal parallel</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="do">##  only optimal for higher spatial resolutions (&lt;10km) </span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">get_wind</span>(windextents<span class="sc">$</span>CAMILLE_1969_NA_1969226N18280,<span class="at">methods=</span><span class="fu">c</span>(<span class="st">&quot;all&quot;</span>),</span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>                  <span class="at">s_res=</span><span class="dv">5000</span>,<span class="at">cpus=</span><span class="dv">15</span>,<span class="at">todir=</span><span class="st">&quot;./&quot;</span>)</span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="do">####################</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#  parallel across multiple storms via snowfall</span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#  best for low to medium resolution for multiple storms</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="do">####################</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="fu">library</span>(snowfall)</span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="fu">sfInit</span>(<span class="at">parallel=</span><span class="cn">TRUE</span>, <span class="at">cpus=</span><span class="dv">2</span>) </span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a><span class="do">## </span><span class="al">WARNING</span><span class="do">: Do not overdo the number of CPUs. Verify your machine&#39;s capacity </span></span>
+<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a><span class="do">## beforehand.</span></span>
+<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a><span class="do">## the parallel cpus will each do one storm, so no point in giving it more cpus </span></span>
+<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a><span class="do">## than there are storms to process, unless there are more storms than </span></span>
+<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a><span class="do">## available cpus</span></span>
+<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a><span class="fu">sfLibrary</span>(sf)</span>
+<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="fu">sfLibrary</span>(terra)</span>
+<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="fu">sfLibrary</span>(dplyr)</span>
+<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a><span class="fu">sfLibrary</span>(fields) <span class="co"># for the TPS models</span></span>
+<span id="cb4-41"><a href="#cb4-41" tabindex="-1"></a><span class="fu">sfLibrary</span>(geosphere)  <span class="co"># for the bearing function</span></span>
+<span id="cb4-42"><a href="#cb4-42" tabindex="-1"></a><span class="fu">sfLibrary</span>(Cyclones)<span class="co"># for the current library</span></span>
+<span id="cb4-43"><a href="#cb4-43" tabindex="-1"></a><span class="co">#sfLibrary(snowfall) # to be able to write to log file</span></span>
+<span id="cb4-44"><a href="#cb4-44" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">sfLapply</span>(windextents,Cyclones<span class="sc">:::</span>get_wind,<span class="at">methods=</span><span class="st">&quot;all&quot;</span>,<span class="at">s_res=</span><span class="dv">20000</span>,</span>
+<span id="cb4-45"><a href="#cb4-45" tabindex="-1"></a>                  <span class="at">t_res=</span><span class="dv">60</span>,<span class="at">parallel=</span><span class="cn">TRUE</span>)</span>
+<span id="cb4-46"><a href="#cb4-46" tabindex="-1"></a><span class="fu">sfStop</span>()</span>
+<span id="cb4-47"><a href="#cb4-47" tabindex="-1"></a><span class="do">## unwrap</span></span>
+<span id="cb4-48"><a href="#cb4-48" tabindex="-1"></a>winds <span class="ot">&lt;-</span> <span class="fu">lapply</span>(winds, <span class="cf">function</span>(x) <span class="fu">lapply</span>(x,unwrap))</span></code></pre></div>
+<div class="float">
+<img src="Winds_files/figure-html/plotwinds1-1.png"
+alt="Fig 2. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results." />
+<div class="figcaption">Fig 2. The results of get_wind() are rasters for
+each timestep at the desired spatial resolution (here at 5000km). This
+is showing windspeed, but wind direction and power disspipation are also
+provided. Because we modeled the wind extents before computing the wind
+rasters, all methods can be used. See further below a comparison of the
+modeled versus non modeled results.</div>
+</div>
+<p>In the introductory vignette, the same wind rasters were produced
+based on wind extents that were not modeled. While maintaining the
+uncertainty of the native data, these un-modeled extents are unable to
+provide much of the information necessary for TPS calculation, and in
+the case that they do have all of the necessary information, it is
+sometimes misleading. The below figure demonstrates the difference
+between wind rasters produced from modeled and un-modeled wind extents.
+For Camille, modelling allows for the computation of the other methods,
+which require a radius of maximum wind and an outer pressure estimate at
+the least. For Sinlaku, modelling helps constrain the maximum wind
+field.</p>
+<div class="float">
+<img src="Winds_files/figure-html/plotwinds3-1.png"
+alt="Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native wind extents (un-modeled) as well as those from windextents that were supplemented with modeling. The un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area. Non-TPS methods that weren’t able to compute for Camille, did so with modeled extents." />
+<div class="figcaption">Fig 3. The results of get_wind() for Sinlaku,
+2026 using only the native wind extents (un-modeled) as well as those
+from windextents that were supplemented with modeling. The un-modeled
+TPS extents do not properly bound the eye, resulting in an inflated
+maximum wind area. Non-TPS methods that weren’t able to compute for
+Camille, did so with modeled extents.</div>
+</div>
+<p>Another look at one time step with the published wind extents
+overlayed from the National Hurricane Center. <img
+src="Winds_files/figure-html/plotwinds4-1.png"
+alt="Fig 4. Rasters from get_wind() along with the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones, which can be seen here as the non-tps methods drastically underestimate storm size compared to TPS." /></p>
+</div>
+<div id="compare-winds-with-any-corresponding-drop-sondes"
+class="section level2">
+<h2>Compare Winds With Any Corresponding Drop Sondes</h2>
+<p>The compare_winds function will compare the computed raster data with
+drop sonde data from the National Hurricane Center, if available. Drop
+sondes are acquired from <a
+href="https://www.aoml.noaa.gov/hrd/data_sub/hurr.html"
+title="NOAA&#39;s Hurricane Research Division">NOAA’s Hurricane Research
+Division</a>. They are high accuracy gps beacons, whose trajectory and
+sensors provide high frequency wind information (i.e. velocity,
+direction). Data are available for select storms dating back to 1960. If
+available, data is ingested, parsed, aggregated, and saved to either a
+temp drive or a permanent repository, which makes processing more stable
+if the same storms will be reanalyzed in the future (no need to
+download). Once the sonde data is ready, they are cross referenced with
+the wind rasters and matched by location (accuracy dependent on raster
+resolution) and time (within 5 minutes default). Although drop sondes
+collect information along the entire vertical profile of the storm, only
+surface winds (&lt;30 m in elevation) are compared here, as those are
+most comparable to the raster layers.</p>
+<p>The compare_winds function will output a list of spatial feature data
+frames in a geographic coordinate system, with each entry corresponding
+to one set of sonde measurements and the corresponding extracted raster
+value. It can be used to assess and examine the accuracy of the wind
+products as they related to direct measurements from the sondes.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="do">##  The wind rasters (as filenames or loaded into memory) can be compared </span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="do">##  against the hurricane hunter drop sonde data</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="do">##  indicating the ddir will save and load the sonde data from that directory</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>comps  <span class="ot">&lt;-</span> <span class="fu">compare_winds</span>(<span class="at">rasts=</span>windsSinlaku,<span class="at">ddir=</span><span class="st">&quot;./Drop Sondes/&quot;</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>comps_r <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind,comps)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="do">###  get the value closest to the ground for each sonde in each storm</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>comps_r_filt <span class="ot">&lt;-</span> comps_r <span class="sc">|&gt;</span> <span class="fu">group_by</span>(sonde, storm, method,var) <span class="sc">|&gt;</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="fu">filter</span>(ZW.m<span class="sc">==</span><span class="fu">min</span>(ZW.m,<span class="at">na.rm=</span><span class="cn">TRUE</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span></code></pre></div>
+<p><img src="Winds_files/figure-html/compare_winds-1.png"
+alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." /><img
+src="Winds_files/figure-html/compare_winds-2.png"
+alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." /></p>
+<p>The above graphic represents the drop sonde comparisons for the
+raster products of about 40 storms since 2016, each at 5 km spatial
+resolution and 10 min temporal resolution. Although each storm will be
+different, overall the TPS method outperforms the other models in terms
+of the root mean square error (RMSE). Most of the error for all methods
+stems from sonde locations in the eye-wall, where wind dynamics can
+change drastically over relatively small distances. Future comparison
+will also incoporate <a
+href="https://www.star.nesdis.noaa.gov/socd/mecb/sar/sarwinds_tropical.php">SAR
+wind measurements</a>.</p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
