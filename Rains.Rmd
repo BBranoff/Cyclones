@@ -3,6 +3,205 @@ title: "Rains"
 ---
 
 # Get Precipitation Products
-The Cyclones package can also ingest and process precipitation data for all storms after 1940. There are three potential sources for the data: [the European Space Agency's ERA5 (ecmwf)](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels), [the National Aeronautics and Space Administration's (NASA) Global Precipitation Measurement Mission (gpm)](https://gpm.nasa.gov/missions/GPM), and [the Multi-Source Weighted-Ensemble Precipitation (mswep)](https://www.gloh2o.org/). All data sources require some sort initial registration before they can be accessed via the api, as well as additional packages for extracting and assembling the data. They are global, hourly or three-hourly data at ~25 and 10 km resolution. The get_precip function will request data from the source (default is ecmwf), download it into a given directory (if specified), and then create storm specific gridded precipitation outputs. 
+The Cyclones package can also ingest and process precipitation data for all storms after 1940. There are three potential sources for the data: [the European Space Agency's ERA5 (ecmwf)](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels), [the National Aeronautics and Space Administration's (NASA) Global Precipitation Measurement Mission (gpm)](https://gpm.nasa.gov/missions/GPM), and [the Multi-Source Weighted-Ensemble Precipitation (mswep)](https://www.gloh2o.org/). All data sources require some sort of initial registration before they can be accessed via the api, as well as additional packages for extracting and assembling the data. They are global, hourly or three-hourly data at ~25 and 10 km resolution. The get_precip function will request data from the source (default is ecmwf), download it into a given directory (if specified), and then create storm specific gridded precipitation outputs. 
 
-Unlike wind, cyclone precipitation patterns are often preceded by "predecessor rain events" [(PREs)]("https://doi.org/10.1175/2010MWR3243.1"), in which moist tropical air is trapped and lifted by a high pressure system in front of the oncoming cyclone, where it then falls as significant precipitation around 36 hours before the arrival of cyclone derived rainfall. Therefore, 'get_precip()' will accept a numerical "prestorm" argument specifying the number of hours before the arrival of a cyclone for which to also gather precipitation. A value of TRUE will also be accepted and will default to 48 hours.  In these cases, the results will be separated into "storm" and "prestorm" rasters.   
+Precipitation is gathered within a 500km radius around the storm center. [This is the meteorological standard](https://link.springer.com/article/10.1007/s11069-025-07689-z) for determining what is cyclone-derived rainfall and is estimated to account for about 95%. 
+
+Unlike wind, cyclone precipitation patterns are often preceded by "predecessor rain events" [(PREs)](https://doi.org/10.1175/2010MWR3243.1), in which moist tropical air is trapped and lifted by a high pressure system in front of the oncoming cyclone, where it then falls as significant precipitation around 36 hours before the arrival of cyclone derived rainfall.
+Therefore, 'get_precip()' will accept a numerical "prestorm" argument specifying the number of hours before the arrival of a cyclone for which to also gather precipitation. A value of TRUE will also be accepted and will default to 48 hours.  In any case, pre-storm periods are determined for each pixel, depending upon when the pixel came within 500km of the storm center. Results will be separated into "storm" and "prestorm" rasters. Here, we expand upon the introductory demonstration by including pre-storm precipitation.
+
+First, retrieve and prepare storm data.
+
+```{r false-load-data,eval=FALSE}
+library(Cyclones)
+
+###  for filtering and plotting the data
+library(ggplot2)
+library(terra)
+library(sf)
+
+###  grab the storm data
+allstorms <- get_storms(ib_filt="ALL")
+storms <- allstorms[grep("FRANCES_2004|HELENE_2024",names(allstorms))]
+```
+```{r install,message=FALSE,warning=FALSE,echo=FALSE}
+devtools::load_all()
+library(dplyr)
+library(ggplot2)
+library(terra)
+library(sf)
+allstorms <- get_storms("I:/ibtracs.ALL.list.v04r01.csv")
+storms <- allstorms[grep("FRANCES_2004|HELENE_2024",names(allstorms))]
+```
+
+
+As explained in the introductory vignette, precipitation comes from one of three data sources, all of which are free but require some pre-registration and setup in R. 
+
+```{r get_precip_false,eval=FALSE}
+##  to download precipitation data, you must first register with either ECMWF or NASA, or request access to MSWEP:
+##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)
+##  [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)
+##  [request access to MSWEP](https://www.gloh2o.org/)
+
+##  once registered with ECMWF, you will receive an API token that looks like this:  abcd1234-foo-bar-98765431-XXXXXXXXXX
+##  This will give you access to the data repositories.
+##  To set your api key in R and make it accessible for future use this:
+##  (This only needs to be run once per R installation and setup and should not be run every time) 
+library(ecmwfr)
+wf_set_key(key = "abcd1234-foo-bar-98765431-XXXXXXXXXX")
+
+##  or, once registered at nasa earthdata, run the following with your username and password
+##  note: gpm data will take the longest, as it is provided in 30 minute intervals at 10k spatial resolution, in hdf5 format
+library(earthdatalogin)
+edl_netrc(username = "XXXX",password="XXXX")
+
+##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):
+library(googledrive)
+drive_auth()
+
+##  The system is now configured to access the data.
+##  To not have to re-download storm data again, store the raw precipitation files in a local repository (dpath).
+##  Otherwise they will be downloaded to the temporary directory.
+##  likewise, write the results to disk utilizing the 'todir' argument, especially when producing high resolution products
+##  the default when providing a 'todir' is to return the filenames, but we can explicitly request the rasters with "loadrasts=TRUE"
+##  we can also modify the time step (t_res) and the spatial resolution (s_res).
+##  In the introductory vignette, we did not specify the resolution, so the different native resolutions were returned
+##  Here, we reproject everything to the same resolution when we specify s_res
+##  We also request both 24 and 48 hour pre-storm precipitation
+##  finally, because we are processing all of the methods and using higher resolutions, we can elect a parallel setup using the cpus argument
+precip <- lapply(storms,get_precip,dpath="./data/Precipitation",todir="./products/Rains",sources="all",prestorm=c(24,48),t_res=30,s_res=10000,cpus=15)
+##  Afterwards and with the files already saved to disk, we can load them using their folder names.
+##  in this case, we have to explicitly set their names in the list for easier navigation
+precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="./products/Rains",loadrasts = TRUE)
+
+str(precip)
+###  results are broken down by storm ID, source, and also storm and pre-storm precipitation (if desired)
+###  Because we've chosen modern storms, all sources are available
+```
+
+```{r show_precip,echo=FALSE,message=FALSE,warning=FALSE}
+precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
+str(precip)
+```
+
+We can see from the above the results are typical of Cyclones products, nested lists of raster stacks. The products are stored as storm or pre-storm files, for each precipitation source, and for each storm. Taking a look at only one of those shows the raster stack. In this case, there are 246 layers for Helene, one for each 30 minute interval (246/2/24 = 5.125 days). The layers are in the custom lcc projection and at the desired 10km spatial resolution. Sources show that the files were (or were not) loaded from specific files, and the time and units are also shown. 
+
+```{r show_precip2,message=FALSE,warning=FALSE}
+###  showing one set of raster stacks
+precip$HELENE2024$ecmwf$storm
+```
+
+We could also get the precipitation for storms in parallel if desired. This would be most useful when processing many storms, effectively taking the same time to process 5 storms (when utilizing 5 cpus) as it would to process 1. Unfortunately, Snowfall does not support writing progress to the console, so all processing in parallel is silent. Other parallel libraries should also be capable of this, but they have not been tested extensively.
+
+```{r parallel_precip_false,eval=FALSE}
+##  initiate parallel
+##  in this simple case just our two storms, so only 2 cpus necessary
+sfInit(parallel=TRUE,cpus=2)
+##  must import the libraries to the workers
+##  this should be covered by exporting only Cyclones, but just in case
+sfLibrary(terra)
+sfLibrary(sf)
+sfLibrary(dplyr)
+sfLibrary(Cyclones)
+##  here, we remove the cpus call in get_precip to avoid running nested parallel processes
+precip_par <- sfLapply(storms,get_precip,dpath="./data/Precipitation",sources="ecmwf",prestorm=TRUE,t_res=30,s_res=10000)
+##  remember to close the worker nodes
+sfStop()
+precip_par
+```
+
+```{r parallel_precip,echo=FALSE,message=FALSE,warning=FALSE}
+####  funky markdown results when running parallel
+###  output is if it wasnt not run in parallel and also all messaging and outputs are displayed
+###  even ones that are normally surpressed when running in the console
+
+# library(snowfall)
+# sfInit(parallel=TRUE,cpus=2)
+# sfLibrary(terra)
+# sfLibrary(sf)
+# sfLibrary(dplyr)
+# sfLibrary(Cyclones)
+# devtools::load_all()
+# on.exit(sfStop())
+#precip_par <- sfLapply(storms,get_precip,dpath="I:/Precipitation",sources="ecmwf",prestorm=TRUE,t_res=30,s_res=10000)
+rapply(precip,wrap)
+```
+
+In the above output, note that the products are wrapped (packed) because the parent call was in parallel and we did not supply a 'todir'. As raster products cannot be passed from worker nodes, they need to be wrapped before output. Therefore, we need to unwrap these. An alternative would be to save the products via 'todir' and then load them again via the above outlined process. 
+
+```{r unwrap,eval=FALSE,message=FALSE,warning=FALSE}
+##  unwrap the packed raster products from a parallel call
+##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
+
+##  results arent the same...need to find a way to list them like they are returned by the app
+precip <- rapply(precip_par, unwrap)
+```
+
+With the precipitation products processed, we can examine the results. To aid in comparing sources and time periods, this is demonstrated via ggplot, which requires some manipulation of the raster images into data frames. But base plot can also easily be used to visualize the raster products. 
+
+```{r get_precip_plot,message=FALSE,warning=FALSE,fig.width=9,fig.height=7,fig.cap="Fig 1. The results of get_precip() are individual rasters representing the rainfall for each time step in the requested frequency, in this case every 30 minutes. Notice the differences between the precipitation sources. GPM has been noted to overestimate extreme rainfall. Because we also requested prestorm precipitation, the area of interest is expanded to where the storm will be over the next 24 hours and 48 hours. In the case of Frances, most of the storm rainfall fell over the Bahamas, with little prestorm precipitation at that time. Fig 2 demonstrates the case of Helene, which had a significant predecessor rain event."}
+precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
+
+r_df <- rapply(precip$FRANCES2004,function(r){
+  as.data.frame(project(r[[time(r)==as.POSIXct("2004-09-04 01:00")]],"epsg:4326"),xy=TRUE)|>
+    tidyr::pivot_longer(cols=3,names_to="layer")
+  }, how="list")
+r_df <- unlist(r_df,recursive=FALSE)
+r_df <- bind_rows(
+  ##  storm data
+  bind_rows(r_df[grep("prestorm",names(r_df),invert=TRUE,value=TRUE)]),
+  ##  prestorm data, has an extra nesting level if two prestorm periods were chosen
+  bind_rows(unlist(r_df[grep("prestorm",names(r_df),value=TRUE)],recursive=FALSE))
+  )
+
+r_df$method <- sapply(strsplit(r_df$layer,"_"),"[[",1)
+r_df$period <- sapply(strsplit(r_df$layer,"_"),"[[",2)
+
+ggplot(data=r_df) +
+   geom_raster(aes(x=x,y=y,fill=value))+
+   facet_grid(method~period)+
+   scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/0.5hr)")+
+   coord_sf(crs ="+proj=robin +lon_0=180")+
+   theme_bw()+
+   geom_sf(data=rnaturalearth::ne_countries(scale=50,country = c("united states of america","the bahamas")),fill=NA,col="black")+
+   ggtitle("Hurricane Frances-2004, Precipitation")+
+   xlim(-90,-70)+ylim(19,35)+
+   theme(axis.title = element_blank(),panel.grid=element_blank())
+```
+
+Rather than individual time steps, many researchers are only interested in the 
+aggregate rainfall over the entire course of the storm and the pre-storm period.
+We can use terra's 'app()' function to aggregate layers. In this case, we 
+demonstrate the total accumulated precipitation by summing all layers, but any 
+number of custom functions could be used. 
+
+```{r get_precip_agg, message=FALSE,warning=FALSE,fig.width=9,fig.height=11,fig.cap="Fig 2. Aggregating over all layers from the product of 'get_precip()' provides cumulative summaries of the entire storm, rather than specific time steps. Here, the prestorm precipitation in Appalachia from Hurricane Helene is equivalent to the storm derived rainfall in the Yucatan Channel. This PRE event is noted to be largely responsible for much of the disturbance caused by Helene in the Appalachian region, which received only modest wind speeds. The GPM maximum values have been clipped due to the previously noted tenency to overestimate extreme values and to better demonstrate the other sources."}
+###  apply the 'app()' function and reproject (for easier plotting) over all rasters in the list
+agg_df <- rapply(precip$HELENE2024,function(r){
+  as.data.frame(project(app(r,fun="sum",na.rm=TRUE),"epsg:4326"),xy=TRUE)|>
+    mutate(method=unique(strsplit(names(r),"_")[[1]][1]),
+           period=gsub("/0.5hr","",unique(strsplit(names(r),"_")[[1]][2])))
+  }, how="list")
+
+###  flatten the list
+agg_df <- unlist(agg_df,recursive=FALSE)
+##  combine everything into the same dataframe
+agg_df <- bind_rows(
+  ##  storm data
+  bind_rows(agg_df[grep("prestorm",names(agg_df),invert=TRUE,value=TRUE)]),
+  ##  prestorm data, has an extra nesting level if two prestorm periods were chosen
+  bind_rows(unlist(agg_df[grep("prestorm",names(agg_df),value=TRUE)],recursive=FALSE))
+  )
+
+ggplot(data=agg_df) +
+   geom_raster(aes(x=x,y=y,fill=sum))+
+   facet_grid(period~method)+
+   scale_fill_viridis_c(n=10,na.value = "transparent",name="Cumulative\nRainfall\n(mm)",
+                        limits=c(0,250))+
+   coord_sf(crs ="+proj=robin +lon_0=180")+
+   theme_bw()+
+   geom_sf(data=st_geometry(rnaturalearth::ne_countries()),fill=NA,col="black")+
+   ggtitle("Hurricane Helene (2024) Aggregate Precipitation")+
+   xlim(-95,-75)+ylim(10,45)+
+   theme(axis.title = element_blank(),panel.grid=element_blank())
+```

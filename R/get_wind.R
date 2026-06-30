@@ -42,25 +42,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
                      todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=TRUE){
   if (!is.null(cpus)){parallel <- TRUE;on.exit(sfStop())}else{parallel <- FALSE}
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(stormextent)[1]=="character"){
-    if (is.null(todir)){
-      todir=getwd()
-    }
-    winds = list.files(paste0(todir,"/",stormextent),recursive = TRUE,full.names = TRUE,pattern=".tif")
-    if (length(winds)>0){
-      nmes <- gsub(".tif","",basename(winds))
-      nmes <- strsplit(nmes,"_")
-      nmes <- lapply(nmes,function(x) paste(x[2],x[6],sep="_"))
-      name=paste(strsplit(winds[[1]],"_")[[1]][4:7],collapse ="_")
-      if (loadrasts){
-        winds = rast(winds)
-        names(winds) <- paste(rep(nmes,each=nlyr(winds)/length(nmes)),names(winds),sep="_")
-      }
-      out=list()
-      out[[name]] <- winds
-      return(out)
-    }else{ stop("No .tif files found in supplied directory. Do you need to specify the todir?")}
-  }
+  if (class(stormextent)[1]=="character") return(load_wind(stormextent,todir,loadrasts))
   ###  this must be done before the directory/file check
   ###  if multiple storms are passed to the function,
   if (is.null(dim(stormextent))){
@@ -80,8 +62,12 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
   }
   ##  if the call to the function was not direct "get_wind()" or wrapped in an lapply for sequential processing, its likely a parallel wrapper has been used
   ##  in this case, further parallelization is not supported
+  ##  check for external parallelization
+  ex_parallel <- any(unlist(lapply(sys.calls(), function(cal) {
+    as.character(cal[[1]]) %in% c("slaveLoop", "%dopar%","workLoop")
+  })))
   if (parallel){
-    if (!as.character(sys.call(sys.parent(n = 1)))[1] %in% c("lapply","eval","get_wind")) stop("Another wrapper function detected. Is parallel processing already implemented at the storm level? Nested parallel operations  not currently supported.")
+    if (ex_parallel) stop("Another wrapper function detected. Is parallel processing already implemented at the storm level? Nested parallel operations  not currently supported.")
     if (!"snowfall" %in% installed.packages()) stop("package 'snowfall' not detected but necessary for internal parallel operations.")
     cl <- initiatepar(cpus)
   }
@@ -151,20 +137,12 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
       msw <- lapply(seq_along(dates),fun,stormextent,rTemps,newdir,overwrite,eye_option=eye_option)
     }
     msw <- Filter(Negate(is.null), msw)
-    if(is.null(todir)){
-      msw <- rast(lapply(msw, unwrap))
-      names(msw) <- paste(unique(stormextent$name), rep(format(unique(terra::time(msw)),"%Y%m%d%H%M"),each=3),names(msw),sep="_")
-      msw <- wrap(msw)
-    }else{
-      msw=unlist(msw)
-    }
+
+    msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel)
     winds=append(winds,list(msw))
-    #names(winds)[length(winds)] <- paste(unique(lines$name), unique(format(centers$date,"%Y")),meth,sep="_")
     cat("\n")
   }
-  #}
-  ###  how to maintain parallel setup for all storms...
- # if (parallel) sfStop()
+  names(winds) <- paste(unique(stormextent$ID[!is.na(stormextent$ID)]),"wind",tolower(methods),sep="_")
   return(winds)
 }
 initiatepar <- function(cpus,type="wind"){
@@ -221,3 +199,43 @@ parallelwind <- function(dates,cents, r,cpus,meth,todir=NULL,overwrt,cluster) {
   msw <- sfClusterApplyLB(seq_along(dates),meth, cents, r,todir,overwrt)
   lapply(msw,unwrap)
 }
+deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
+  #tofiles <-paste0(todir,"/tps_",unique(tracks$ID[!is.na(tracks$ID)]),"_",unique(format(d1,"%Y%m%d%H%M")),".tif")
+  tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(time(rast(lapply(winds,unwrap))),"%Y%m%d%H%M"),".tif")
+  ###  only keep the files that arent already saved if overwrite is FALSE?
+  ### can only do this if out of parallel
+  ### for parallel, saving is done once all files are assembled
+  if (!is.null(todir)){
+    if (!overwrite){
+      if (!all(file.exists(tofiles))) {
+        winds <- unwrap(winds)[[!file.exists(tofiles)]]
+        writeRaster(winds,tofiles[!file.exists(tofiles)],overwrite=overwrite)
+      }
+    }else{
+      writeRaster(unwrap(winds),tofiles,overwrite=overwrite)
+    }
+  }
+  if (loadrsts|is.null(todir)){
+    if (ex_parallel) return(lapply(winds,wrap))
+    else(return(winds))
+  }
+}
+load_wind <- function(storm,todir,loadrasts){
+  if (is.null(todir)){
+    todir=getwd()
+  }
+  meths <- list.dirs(paste0(todir,"/",storm,"_WIND/"))[-1]
+  winds = list.files(paste0(todir,"/",storm,"_WIND/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+  if (length(winds)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
+  out <- list()
+  for (m in meths){
+   winds = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
+    if (length(winds)>0){
+      if (loadrasts) winds = rast(winds)
+      out <- append(out,list(winds))
+    }
+  }
+  names(out) <- basename(meths)
+  return(out)#setNames(list(out),paste(strsplit(precips[[1]],"_")[[1]][c(5:8)],collapse ="_")))
+}
+

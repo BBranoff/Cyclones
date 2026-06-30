@@ -1,6 +1,6 @@
 #' @importFrom earthdatalogin edl_download
 #' @importFrom terra crs ext
-get_gpm <- function(cent,dpath,early=FALSE,username,password){
+get_gpm <- function(cent,dpath,early=FALSE){
   times = sort(unique(cent$date[!is.na(cent$date)]))
   ###  IMERG data re half hourly
   dstart <- first(times[as.numeric(format(times,"%H")) %in% seq(1,23,by=1)])
@@ -32,11 +32,12 @@ get_gpm <- function(cent,dpath,early=FALSE,username,password){
   precips <- lapply(1:length(url),function(f,us,dfiles,e,t){
     if (file.exists(dfiles[f])){
       r=rast(dfiles[f])
+    } else if (file.exists(gsub("V07B","V07C",dfiles[f]))){
+      r=rast(gsub("V07B","V07C",dfiles[f]))
     }else{
       downr <- function(max_attempts =5,attempt=0,success=FALSE) {
         while(attempt < max_attempts && !success) {
           attempt <- attempt + 1
-          browser()
           tryCatch({
             edl_download(us[f],dest =dfiles[f],quiet=FALSE,overwrite=TRUE)
             success <- TRUE
@@ -52,7 +53,14 @@ get_gpm <- function(cent,dpath,early=FALSE,username,password){
         }
       }
       r <- downr(dfiles[f])
+      ###  for recent storms, only the C files are available, try those
+      if (is.null(r)){
+        us[f] <- gsub("V07B","V07C",us[f])
+        dfiles[f]<- gsub("V07B","V07C",dfiles[f])
+        r <- downr(dfiles[f])
+      }
     }
+    cat("\rDownloading/loading NASA GPM precipitation: %",round(100*f/length(url),1))
     if (!is.null(r)){
       ####  the netcdf data are reversed and transposed relative to terra's read format
       r <- terra::t(terra::rev(r$precipitation))
@@ -64,8 +72,7 @@ get_gpm <- function(cent,dpath,early=FALSE,username,password){
     }else{
       return(NULL)
     }
-   cat("\rDownloading/loading NASA GPM precipitation: %",round(100*f/length(url),1))
   },us=url,dfiles=destfiles,e=ext,t=dtimes)
-
+  cat("\n")
  wrap(rast(precips))
 }

@@ -1,7 +1,8 @@
 
 #' @importFrom terra rast ext crop rasterize interpolate mask disagg trim aggregate app nlyr union unwrap units
 #' @importFrom fields Tps
-tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,eye_option="given"){
+#' @importFrom sf st_agr
+tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,eye_option="given",cpus=FALSE){
   #reye <- r
   r <- rast(unwrap(r$rTempP))
   centers=tracks |>filter(location=="track points")|>mutate(dt=difftime(lead(date),date,units="hours"))
@@ -84,7 +85,7 @@ tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,ey
   names(rall) <- paste0("tps_",names(rall))
   terra::time(rall) <- rep(d1,3)
   rall <- mask(rall,st_buffer(line1|>filter(location=="track points"),line1|>filter(location=="track points")|>pull(roci.m)))
-  rall <- extend(rall,r)
+  rall <- project(rall,r)
   #rall <- rast(lapply(unique(dates),function(d,r,c){
   #  mask(rall[[terra::time(rall)==d]],st_buffer(c[c$date==d,],c$roci.m[c$date==d]))},
   #  r=rall,c=centers))
@@ -97,14 +98,7 @@ tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,ey
     message(msg,appendLF = FALSE)
   Sys.sleep(0.01)
   ##  wrap the results for parallel compatability
-  if (!is.null(todir)){
-    lapply(tofiles, function(x){
-      if (!(file.exists(x)&overwrite==FALSE)) writeRaster(rall[[format(terra::time(rall),"%Y%m%d%H%M")==gsub(".tif","",strsplit(basename(x),"_")[[1]][6])]],x,overwrite=overwrite)
-      })
-    return(tofiles)
-  }else{
-    return(wrap(rall))
-  }
+ return(wrap(rall))
 }
 tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   ###  from Holland 1980
@@ -126,7 +120,9 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
                     st_buffer(outer|>st_cast("POLYGON"),outer$dist.m*.1) |>
                       mutate(location="ROCI2",dist.m=dist.m+dist.m*.1)|>st_cast("LINESTRING"))
   ##  cropping will chnage extent relative to other methods
-  #r <- crop(r,line|>filter(location=="ROCI2"))
+  ##  but necessary to avoid way to ong processing times for interpolating empty space
+  ##  results are reprojected back to original r afterwards
+  r_cr <- crop(r,line|>filter(location=="ROCI2"))#rast(crs=crs(r),res=res(r),extent=ext(line))
   ####  remove the eye and the outer storm limits (note: currently keeping these in as they were important when comparing to sonde data. Removing them speeds up analysis significantly)
   ###  we can set those to zero later
   # n <- 2.1340 + 0.0077 * center$maxWind*0.51444 - 0.4522 * log(center$rmw/1000) - 0.0038 * abs(center$centerY_shifted_geo)
@@ -163,14 +159,14 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
     line <- line|>mutate(kts=if_else(location=="eye",max(kts,na.rm=TRUE)*0.8,kts))
   }
   rv <-  rasterize(bind_rows(line|>filter(!location %in%c("ROCI","track","track points")),
-                             st_buffer(line[line$location=="track points",],1)|>mutate(kts=10)|>st_cast("LINESTRING")), r, "kts",touches=T,fun="mean")
+                             st_buffer(line[line$location=="track points",],1)|>mutate(kts=10)|>st_cast("LINESTRING")), r_cr, "kts",touches=T,fun="mean")
   #rv2 <-  rasterize(
     ###  the normal extents
   #  line|>filter(!location %in%c("ROCI","track","track points")),
   #  r, "kts",touches=T,fun="mean")
 
   rP <-  rasterize(bind_rows(line|>filter(!location %in%c("ROCI","track","track points")),
-                             st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r, "P",touches=T)
+                             st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r_cr, "P",touches=T)
   ###  convert the xyz values to a dataframe for thin spline interpolation
   xyv <- as.data.frame(rv, xy=T,na.rm=F)
   xyP <- as.data.frame(rP, xy=T,na.rm=F)
@@ -181,7 +177,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   if (!any(is.na(xyP$P))) tps_P <-  Tps(xyP[,1:2], xyP[,3])
   else tps_P <- NULL
   ###  use the model to predict the unknown wind speeds
-  p_v <- interpolate(r, tps_v)
+  p_v <- interpolate(r_cr, tps_v)
   if ("eye" %in% line$location&&eye_opt=="given") {
     p_v <- mask(p_v,line|>filter(location=="eye")|>st_cast("POLYGON"),updatevalue=0,inverse=TRUE,touches=FALSE)
   }
@@ -191,7 +187,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   ##  to be able to interpolate the wind changes at the eye wall, need a small res raster
   ##  regardless of what the output raster is
   if (max(line$kts,na.rm=TRUE)>=64&&eye_opt=="80-50"){
-    r_eye <- crop(disagg(r,res(r)[1]/1000),st_buffer(line[line$location=="track points",],min(line$dist.m[line$kts==max(line$kts,na.rm=TRUE)],na.rm=TRUE)))
+    r_eye <- crop(disagg(r_cr,res(r_cr)[1]/1000),st_buffer(line[line$location=="track points",],min(line$dist.m[line$kts==max(line$kts,na.rm=TRUE)],na.rm=TRUE)))
     ## how many steps?
     rv_eye <-rasterize(
       bind_rows(
@@ -251,7 +247,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   ##  power is then a function of the density and the pressure
   ##  https://www.e-education.psu.edu/emsc297/node/649
   if (!is.null(tps_P)){
-    p_P <- interpolate(r, tps_P)
+    p_P <- interpolate(r_cr, tps_P)
     p_P <- terra::clamp(p_P,lower=min(line$minpress.mb,na.rm=T),upper=max(line$maxpress.mb,na.rm=T))
     dens <- p_P*100/(287.058*298)
     kW <- as.numeric(center$dt)*(0.5*dens*1*(p_v)^3)/1000

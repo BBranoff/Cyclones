@@ -1,4 +1,5 @@
 checkrasts <- function(rasts){
+
   if (!unique(unlist((lapply(rasts,class)))) %in% c("SpatRaster","character")) stop("Unknown raster inputs. Supply either storm raster bricks or filenames.")
   nmes <- names(rasts)
   if (is.null(nmes)){

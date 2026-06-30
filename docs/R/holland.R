@@ -93,10 +93,7 @@ holland <- function(L, extents,tmpRas,todir,overwrite=FALSE,smooth=FALSE,quiet=F
   #comps$rsource="Holland"
   if (!quiet) message(paste0("\rCalculating Holland wind field for ",paste(unique(cens$name),unique(format(cens$date,"%Y")),sep="_"),
                  ": %",round(100*L/(nrow(cens)+1),1)),appendLF = FALSE)
-  if (!is.null(todir)){
-    if (!(file.exists(tofile)&overwrite==FALSE)) writeRaster(tmpRas,tofile,overwrite=overwrite)
-    return(tofile)
-  }else{
+
     return(  wrap(tmpRas))
-  }
+
 }

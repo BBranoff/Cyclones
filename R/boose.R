@@ -85,11 +85,7 @@ boose <- function(L,extents,tmpRas,todir,overwrite=FALSE,smooth=FALSE,eye_option
   message(paste0("\rCalculating Boose wind field for ",paste(unique(cens$name),unique(format(cens$date,"%Y")),sep="_"),
                  ": %",round(100*L/(nrow(cens)+1),1)),appendLF = FALSE)
 
-  if (!is.null(todir)){
-    if (!(file.exists(tofile)&overwrite==FALSE)) writeRaster(tmpRas,tofile,overwrite=overwrite)
-    return(tofile)
-  }else{
-    return(wrap(tmpRas))
-  }
+
+  return(wrap(tmpRas))
 }
 

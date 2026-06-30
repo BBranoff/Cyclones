@@ -20,18 +20,20 @@ get_mswep <- function(cent,dpath=NULL){
     ##  for more recent files
     drivefiles_recent <- drive_ls(as_id("1XBonFS0_t3aSM_C4CYobwsN-spmj29vo"), q = paste0("name = '",fname,"'"),recursive=FALSE)
     drivefiles <- list(drivefiles_past,drivefiles_recent)[which(c(nrow(drivefiles_past),nrow(drivefiles_recent))>0)][[1]]
-    if (file.exists(paste0(dp,fname))){
-      r=rast(paste0(dp,"/",fname))$precipitation
+    ##  terra will return a raster with missing crs if filename is not correctly formatted
+    fp <-  normalizePath(paste0(dp,fname))
+    if (file.exists(fp)){
+      r=rast(fp)$precipitation
     }else if(nrow(drivefiles)==1){
       downr <- function(df,max_attempts =5,attempt=0,success=FALSE) {
         while(attempt < max_attempts && !success) {
           attempt <- attempt + 1
           tryCatch({
-            drive_download(df$id[1],path=paste0(dp,fname),overwrite=TRUE)
+            drive_download(df$id[1],path=fp,overwrite=TRUE)
             success <- TRUE
-            return(rast(paste0(dp,"/",fname)))
+            return(rast(fp))
           }, error = function(e){
-            file.remove(paste0(dp,fname))
+            file.remove(fp)
             if (attempt >= max_attempts) {
               return(NULL)
             }else{
@@ -41,11 +43,30 @@ get_mswep <- function(cent,dpath=NULL){
         }
       }
       r <- downr(drivefiles)
-      if (!is.null(r)) r <- r$precipitation
+      if (!is.null(r))  r <- r$precipitation
+      #   ###  some files have missing extents and layer names
+      #   if (crs(r)!=""){ r <- r$precipitation
+      #   ###  if thats the case, get the extent of a 'similar' file
+      #   }else{
+      #     fname <- gsub(format(t,"%Y%j"),paste0(as.numeric(format(t,"%Y"))+1,format(t,"%j")),fname)
+      #     drivefiles_past <- drive_ls(as_id("1DVR90Ud1C444bTOPeENX-3I7tgqPLnao"), q = paste0("name = '",fname,"'"),recursive=FALSE)
+      #     drivefiles_recent <- drive_ls(as_id("1XBonFS0_t3aSM_C4CYobwsN-spmj29vo"), q = paste0("name = '",fname,"'"),recursive=FALSE)
+      #     drivefiles <- list(drivefiles_past,drivefiles_recent)[which(c(nrow(drivefiles_past),nrow(drivefiles_recent))>0)][[1]]
+      #     if (file.exists(paste0(dp,fname)))  rtmp=rast(paste0(dp,"/",fname))$precipitation
+      #     else rtmp <- downr(drivefiles)
+      #     if (crs(rtmp)!=""){
+      #       crs(r) <- crs(rtmp)
+      #       ext(r) <- ext(rtmp)
+      #       names(r) <- "precipitation"
+      #       writeRaster(r,paste0(dp,fname))
+      #     }
+      #   }
+      # }
     }else{
       times <- times[-which(times==t)]
       return(NULL)
     }
+    cat("\rDownloading/loading MSWEP precipitation: %",round(100*which(dtimes==t)/length(dtimes),1))
     if (!is.null(r)){
       ###  for MSWEP, the file names are the starting times, but we want the end times
       ###  so add in the 3 hours
@@ -57,5 +78,6 @@ get_mswep <- function(cent,dpath=NULL){
     }
   },e=ext,dp=dpath)
   if (all(is.null(precips))) stop("Download or loading MSWEP precipitation failed.")
+  cat("\n")
   wrap(rast(precips))
 }

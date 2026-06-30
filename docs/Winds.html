@@ -291,7 +291,7 @@ allstorms &lt;- get_storms(&quot;./ibtracs.ALL.list.v04r01.csv&quot;)
 # allstorms &lt;- get_storms(ib_filt=&quot;all&quot;)
 
 ##  separate the storms of interest for this vignette
-storms &lt;- allstorms[grep(&quot;CAMILLE_1969|SINLAKU_2026&quot;,names(allstorms))]</code></pre>
+storms &lt;- allstorms[grep(&quot;CAMILLE_1969|SINLAKU_2026|MARIA_2017&quot;,names(allstorms))]</code></pre>
 </div>
 <div id="get-wind-products" class="section level1">
 <h1>Get Wind Products</h1>
@@ -350,17 +350,18 @@ windextents &lt;- lapply(storms,make_extents, mods=mods,t_res=15,cpus=10)
 
 ## parallel over multiple storms
 library(snowfall)
-sfInit(parallel=TRUE, cpus=2) 
+sfInit(parallel=TRUE, cpus=3) 
 sfLibrary(sf)
 sfLibrary(terra)
 sfLibrary(dplyr)
+sfLibrary(Cyclones)
 windextents &lt;- sfLapply(storms,make_extents, mods=mods,t_res=30)
 ##  be sure to close parallel workers
 sfStop()
 
 ##  If both linestrings and polygons were returned, they can be pulled out
-linestrings &lt;- lapply(windextents,function(x) x[st_geometry_type(x)==&quot;LINESTRING&quot;,])
-polygons &lt;- lapply(windextents,function(x) x[st_geometry_type(x)==&quot;POLYGON&quot;,])
+linestrings &lt;- lapply(windextents,function(x) x$linestrings)
+polygons &lt;- lapply(windextents,function(x) x$swaths)
 ##  the individual storms are projected in their own crs, centered on the storm.
 ##  To get them all in the same CRS, if desired
 linestrings &lt;- lapply(linestrings,st_transform,crs=4326)</code></pre>
@@ -374,18 +375,26 @@ native data when compared to the more recent Sinlaku. Still, Sinlaku
 native data is missing some of the lower wind extents that would
 normally be included in a modern North Atlantic storm.</p>
 <div class="figure">
-<img src="Winds_files/figure-html/plot-extents-1.png" alt="Fig 1. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps." width="672" />
+<img src="Winds_files/figure-html/plot-extents-1.png" alt="Fig 1. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. Here, only the native timesteps are shown, with a mix of native and modeled extents." width="864" />
 <p class="caption">
 Fig 1. The results of make_extents() are storm tracks, as well as outer
-limits of various wind and pressure values. If t_res was utilized,
-interpolated features are also created to fill in the missing times.
-Additionally, the ‘mods’ argument can be used to model wind and pressure
-values that are missing, which is usually the case for older storms or
-sometimes for storms outside of USA jurisdiction. In this case, an older
-storm (Camille) has very little native information. Because we used
-modeling to fill in the missing extents, there are a mix of native and
-modeled features, as well as interpolated features between the native
-time steps.
+limits of various wind and pressure values. Here, only the native
+timesteps are shown, with a mix of native and modeled extents.
+</p>
+</div>
+<div class="figure">
+<img src="Winds_files/figure-html/plot-extents2-1.png" alt="Fig 2. Another look at the results of make_extents(), this time looking at the different sources of the data and only for hurricane force winds. If t_res was utilized, interpolated features are also created to fill in the missing times. Also, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps." width="672" />
+<p class="caption">
+Fig 2. Another look at the results of make_extents(), this time looking
+at the different sources of the data and only for hurricane force winds.
+If t_res was utilized, interpolated features are also created to fill in
+the missing times. Also, the ‘mods’ argument can be used to model wind
+and pressure values that are missing, which is usually the case for
+older storms or sometimes for storms outside of USA jurisdiction. In
+this case, an older storm (Camille) has very little native information.
+Because we used modeling to fill in the missing extents, there are a mix
+of native and modeled features, as well as interpolated features between
+the native time steps.
 </p>
 </div>
 </div>
@@ -395,11 +404,11 @@ time steps.
 creating a more complete gridded representation that can be useful in
 any number of applications. This is accomplished through either one of
 three theoretical models, or through a more empirical Thin Plate Spline,
-which utilizes the above linestrings, which in this case were generated
-from a set of models. Because we used models here, all methods should
-produce a set of rasters, in contrast to the simple method employed in
-the introductory vignette, which did not use models and as a result
-could not produce all methods for the older Camille storm.</p>
+which utilizes the above linestrings, and which in this case were
+generated from a set of models. Because we used models here, all methods
+should produce a set of rasters, in contrast to the simple method
+employed in the introductory vignette, which did not use models and as a
+result could not produce all methods for the older Camille storm.</p>
 <p>The ‘make_winds’ function accepts a spatial resolution specification
 and will match the temporal resolution of the input wind extents.
 Although accuracy and smoothness are optimized at higher resolutions,
@@ -414,23 +423,20 @@ operations. All storm layers are projected onto a Lambert Azimuthal
 Equal Area reference system that is centered on the storm’s extent,
 which preserves area across large geographic regions and avoids
 geographic coordinate issues at the 180th meridian.</p>
-<pre class="r"><code>winds &lt;- lapply(windextents,get_wind,methods=c(&quot;all&quot;))
-### unwrap files in memory
-winds &lt;- lapply(winds, function(x) lapply(x,unwrap))
+<pre class="r"><code>##  use get_wind() to produce the wind rasters
+winds &lt;- lapply(windextents,get_wind,methods=c(&quot;all&quot;))
 names(winds)
-
-## load files saved to disk from the above (if &#39;todir&#39; was used)
-winds &lt;- lapply(winds, function(x) rast(unlist(x)))
 
 ## load files saved to disk previously, providing the directory names as saved
 ## in this case, if files were saved other than the working directory, provide 
 ## that as the &#39;todir&#39; argument
-winds &lt;- lapply(list(&quot;CAMILLE1969_20000_30&quot;,&quot;SINLAKU2026_20000_30&quot;),get_wind)
-winds &lt;- unlist(winds)
+winds &lt;- lapply(list(CAMILLE1969=&quot;CAMILLE1969_20000_30&quot;,SINLAKU2026=&quot;SINLAKU2026_20000_30&quot;,MARIA2017=&quot;MARIA2017_20000_30&quot;),
+                todir=&quot;./Winds&quot;,get_wind)
+
 
 ## the layers are stored in nested lists in which individual time steps are 
 ## nested within each storm and each method
-windsCamille_tps &lt;- winds$CAMILLE_1969_NA_1969226N18280[[1]]
+windsCamille_tps &lt;- winds$CAMILLE_1969_NA_1969226N18280$tps
 plot(windsCamille_tps[[1:3]])
 
 ##  compute only one storm at a time, utilizing internal parallel
@@ -457,7 +463,7 @@ sfLibrary(fields) # for the TPS models
 sfLibrary(geosphere)  # for the bearing function
 sfLibrary(Cyclones)# for the current library
 #sfLibrary(snowfall) # to be able to write to log file
-winds &lt;- sfLapply(windextents,Cyclones:::get_wind,methods=&quot;all&quot;,s_res=20000,
+winds &lt;- sfLapply(windextents,Cyclones:::get_wind,methods=&quot;all&quot;,s_res=10000,
                   t_res=60,parallel=TRUE)
 sfStop()
 ## unwrap
@@ -474,7 +480,7 @@ modeled results.
 </p>
 </div>
 <p>In the introductory vignette, the same wind rasters were produced
-based on wind extents that were not modeled. While maintaining the
+based on wind extents that were not modeled. While they maintain the
 uncertainty of the native data, these un-modeled extents are unable to
 provide much of the information necessary for TPS calculation, and in
 the case that they do have all of the necessary information, it is
@@ -485,7 +491,7 @@ which require a radius of maximum wind and an outer pressure estimate at
 the least. For Sinlaku, modelling helps constrain the maximum wind
 field.</p>
 <div class="figure">
-<img src="Winds_files/figure-html/plotwinds3-1.png" alt="Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native wind extents (un-modeled) as well as those from windextents that were supplemented with modeling. The un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area. Non-TPS methods that weren't able to compute for Camille, did so with modeled extents." width="672" />
+<img src="Winds_files/figure-html/plotwinds2-1.png" alt="Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native wind extents (un-modeled) as well as those from windextents that were supplemented with modeling. The un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area. Non-TPS methods that weren't able to compute for Camille, did so with modeled extents." width="672" />
 <p class="caption">
 Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native
 wind extents (un-modeled) as well as those from windextents that were
@@ -498,7 +504,7 @@ extents.
 Another look at one time step with the published wind extents overlayed
 from the National Hurricane Center.
 <div class="figure">
-<img src="Winds_files/figure-html/plotwinds4-1.png" alt="Fig 4. Rasters from get_wind() along with the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones, which can be seen here as the non-tps methods drastically underestimate storm size compared to TPS." width="672" />
+<img src="Winds_files/figure-html/plotwinds3-1.png" alt="Fig 4. Rasters from get_wind() along with the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones, which can be seen here as the non-tps methods drastically underestimate storm size compared to TPS." width="672" />
 <p class="caption">
 Fig 4. Rasters from get_wind() along with the wind extents from
 make_extents(). The wind extents are directly used to calculate the TPS
@@ -526,10 +532,12 @@ temp drive or a permanent repository, which makes processing more stable
 if the same storms will be reanalyzed in the future (no need to
 download). Once the sonde data is ready, they are cross referenced with
 the wind rasters and matched by location (accuracy dependent on raster
-resolution) and time (within 5 minutes default). Although drop sondes
-collect information along the entire vertical profile of the storm, only
-surface winds (&lt;30 m in elevation) are compared here, as those are
-most comparable to the raster layers.</p>
+resolution) and time (within 5 minutes default). Because of this, a
+higher temporal resolution for the rasters will result in more matches
+with the sonde data. Further, although drop sondes collect information
+along the entire vertical profile of the storm, only surface winds
+(&lt;30 m in elevation) are compared here, as those are most comparable
+to the raster layers.</p>
 <p>The compare_winds function will output a list of spatial feature data
 frames in a geographic coordinate system, with each entry corresponding
 to one set of sonde measurements and the corresponding extracted raster
@@ -546,19 +554,6 @@ comps_r_filt &lt;- comps_r |&gt; group_by(sonde, storm, method,var) |&gt;
   ungroup()</code></pre>
 <div class="figure">
 <img src="Winds_files/figure-html/compare_winds-1.png" alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="672" />
-<p class="caption">
-Fig 5. get_wind() raster products compared with drop sonde data from
-hurricane hunter aircraft reconnaissance missions. Sondes are dropped
-from high elevation and take continuous measurements as they fall to the
-ground. The below data represent measurements that were taken within 5
-minutes of the raster times and at the maximum height below 30 meters.
-Generally, raster images accurately reflect the dropsonde data, although
-there are some major discrepencies, mostly from sondes that are near or
-on the eye wall where wind speeds change rapidy across the profile.
-</p>
-</div>
-<div class="figure">
-<img src="Winds_files/figure-html/compare_winds-2.png" alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="672" />
 <p class="caption">
 Fig 5. get_wind() raster products compared with drop sonde data from
 hurricane hunter aircraft reconnaissance missions. Sondes are dropped

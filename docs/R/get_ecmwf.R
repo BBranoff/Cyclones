@@ -1,4 +1,4 @@
-get_ecmwf <- function(cent,todir,overwrite,dfiles=NULL,dpath=tempdir()){
+get_ecmwf <- function(cent,dfiles=NULL,dpath=tempdir()){
   ###  times in ecmwfr are for the previous hour, so no need to change for consistency with the other sources (which are for the next hour or three hours)
   times = sort(seq(min(cent$date,na.rm=TRUE),max(cent$date,na.rm=TRUE),by=unique(as.numeric(cent$dt)[!is.na(as.numeric(cent$dt))])*60*60))
   id = unique(cent$ID[!is.na(cent$ID)])
@@ -71,5 +71,6 @@ get_ecmwf <- function(cent,todir,overwrite,dfiles=NULL,dpath=tempdir()){
   }else{
     reqs <- requests$done
   }
+  cat("\n")
   wrap(rast(reqs)*1000)
 }

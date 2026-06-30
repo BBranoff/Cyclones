@@ -75,33 +75,25 @@
 get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_res=NULL,prestorm=NULL,
                        agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=FALSE){
   #############
-  ###  checks and inititate variables
+  ###  checks and initiate variables
   ###########
+  ##  check for internal parallelization
   parallel <- !is.null(cpus)
-  if (length(prestorm)==1&&prestorm) prestorm=48
+  ##  check for external parallelization
+  ex_parallel <- any(unlist(lapply(sys.calls(), function(cal) {
+    as.character(cal[[1]]) %in% c("slaveLoop", "%dopar%","workLoop")
+  })))
+  ##  if the call to the function was not direct "get_wind()" or wrapped in an lapply for sequential processing, its likely a parallel wrapper has been used
+  ##  in this case, further parallelization is not supported
+  if (parallel){
+    if (ex_parallel) stop("Another wrapper function detected. Is parallel processing already implemented at the storm level? Nested parallel operations not currently supported.")
+    if (!"snowfall" %in% installed.packages()) stop("package 'snowfall' not detected but necessary for internal parallel operations.")
+  }
+  if (length(prestorm)==1&is.logical(prestorm)&&prestorm) prestorm=48
   else if(!is.null(prestorm)&&!all(is.numeric(prestorm))) stop("pre storm hours format must be either TRUE or numeric for number of hours before storm.")
   else if(any(prestorm/24 > 7)) warning("pre storm hours exceeds 7 days, expect long data download period.")
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(storm)[1]=="character"){
-    if (is.null(todir)){
-      #   if (dir.exists(source)) todir= source
-      #  else todir=getwd()
-      todir=getwd()
-    }
-    precips = list.files(paste0(todir,"/",storm),recursive = TRUE,full.names = TRUE,pattern=".tif")
-    if (length(precips)>0){
-      nmes <- gsub(".tif","",basename(precips))
-      nmes <- strsplit(nmes,"_")
-      nmes <- lapply(nmes,function(x) paste(x[2],x[6],sep="_"))
-      name=paste(strsplit(precips[[1]],"_")[[1]][4:7],collapse ="_")
-      if (loadrasts){
-        precips = rast(precips)
-        names(precips) <- paste(rep(nmes,each=nlyr(precips)/length(nmes)),names(precips),sep="_")
-      }
-      out=list()
-      out[[name]] <- precips
-      return(out)
-    }else{ stop("No .tif files found in supplied directory. Do you need to specify the todir?")}
+   if (class(storm)[1]=="character"){ return(load_precip(storm,todir,loadrasts))
   }else if (class(storm)[1]%in% c("vctrs_list_of","list","tbl_df","sf")){
     ###  this must be done before the directory/file check
     ###  if multiple storms are passed to the function,
@@ -153,12 +145,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
   }else{
     stop("unknown data source for 'storm'")
   }
-  ##  if the call to the function was not direct "get_wind()" or wrapped in an lapply for sequential processing, its likely a parallel wrapper has been used
-  ##  in this case, further parallelization is not supported
-  if (parallel){
-    if (!as.character(sys.call(sys.parent(n = 1)))[1] %in% c("lapply","eval","get_precip")) stop("Another wrapper function detected. Is parallel processing already implemented at the storm level? Nested parallel operations  not currently supported.")
-    if (!"snowfall" %in% installed.packages()) stop("package 'snowfall' not detected but necessary for internal parallel operations.")
-  }
+
   if (!is.null(dpath)){
     if (substr(dpath,nchar(dpath),nchar(dpath))!="/") dpath=paste0(dpath,"/")
     if (!dir.exists(dpath)) stop("Specified 'dpath' directory not found.")
@@ -171,48 +158,54 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
     if (!substr(todir,nchar(todir),nchar(todir))=="/") todir=paste0(todir,"/")
     if (!dir.exists(todir)) stop("Specified todir directory not found.")
   }
-  cat(paste0("Downloading to/Loading from: ",dpath,". \n"))
   if(any(sources=="all")) sources=c("ecmwf","gpm","mswep")
   if (!any(grep(c("ecmwf|gpm|mswep"), sources,ignore.case=TRUE))) stop("Unkown 'source' input")
-  if ("mswep" %in% sources&!"googledrive" %in% installed.packages()) stop("package 'googledrive' required for ecmwf precip. source.")
-  if ("ecmwf" %in% sources&!"ecmwfr" %in% installed.packages()) stop("package 'ecmwf' required for ecmwf precip. source.")
-
+  if ("mswep" %in% sources){
+    if (!require("googledrive")) error("'googledrive' package necessary for 'mswep' data downloads. Please install it and run 'googledrive::drive_auth()' to authenticate.")
+    if (is.null(googledrive::drive_user())) stop("googledrive not yet authorized. Use 'googledrive::drive_auth()' to login to your google account and authorize.")
+  }
+  if ("ecmwf" %in% sources){
+    if (!require("ecmwfr")) error("'ecmwfr' package necessary for 'ecmwfr' data downloads. Please install it and run 'ecmwfr::wf_set_key()' with your token to authenticate.")
+    if (is.null(ecmwfr::wf_get_key())) stop("No ecmwf key detected. Register at 'ecmwf.int/user/login' and use ecmwfr::wf_set_key() to set your given key.")
+  }
+  if("gpm" %in% sources){
+    if (!require("earthdatalogin")) error("'earthdatalogin' package necessary for 'gpm' data downloads. Please install it.")
+  }
   precips <- list()
   for (source in tolower(sources)){
     returnNULL <- FALSE
     sres <- s_res
-    dpath_source <- paste0(dpath,source,"/")
-    if (!dir.exists(dpath_source)) dir.create(dpath_source)
     ###  set the native resolutions if not applied
     if (source=="mswep"){
       if (any(unique(as.numeric(storm$SEASON))<1979)){options(warn = 1);warning("MSWEP not available pre 1979, returning NULL");options(warn = 0);returnNULL=TRUE}
-      if (!require("googledrive")) error("'googledrive' package necessary for 'mswep' data downloads. Please install it and run 'googledrive::drive_auth()' to authenticate.")
-      if (is.null(googledrive::drive_user())) stop("googledrive not yet authorized. Use 'googledrive::drive_auth()' to login to your google account and authorize.")
-      #dates <- seq.POSIXt(min(lines$date,na.rm=TRUE),max(lines$date,na.rm=TRUE),by=180*60)
+       #dates <- seq.POSIXt(min(lines$date,na.rm=TRUE),max(lines$date,na.rm=TRUE),by=180*60)
       if (is.null(t_res)) t_res=180
       #if(t_res!=180) interpt=TRUE
       if (is.null(sres)) sres=10000
       #if (s_res<10000) warning("'s_res' is less than the native resolution (10000 m). Results will lose accuracy.")
     }else if (source =="ecmwf"){
-      if (!require("ecmwfr")) error("'ecmwfr' package necessary for 'ecmwfr' data downloads. Please install it and run 'ecmwfr::wf_set_key()' with your token to authenticate.")
-      if (is.null(ecmwfr::wf_get_key())) stop("No ecmwf key detected. Register at 'ecmwf.int/user/login' and use ecmwfr::wf_set_key() to set your given key.")
-      #dates <- seq.POSIXt(min(lines$date,na.rm=TRUE),max(lines$date,na.rm=TRUE),by=60*60)
       if (is.null(t_res)) t_res=60
       #if(t_res!=60) interpt=TRUE
       if (is.null(sres)) sres=25000
     }else{
       if (any(unique(as.numeric(storm$SEASON))<1998)){options(warn = 1);warning("GPM not available pre 1998, returning NULL");options(warn = 0);returnNULL=TRUE}
-      if (!require("earthdatalogin")) error("'earthdatalogin' package necessary for 'gpm' data downloads. Please install it.")
-      #dates <- seq.POSIXt(min(lines$date,na.rm=TRUE),max(lines$date,na.rm=TRUE),by=60*60)
       if (is.null(t_res)) t_res=60
       #if(t_res!=60) interpt=TRUE
       if (is.null(sres)) sres=5000
+    }
+    dpath_source <- paste0(dpath,source,"/")
+    if (!dir.exists(dpath_source)&&!returnNULL){
+      dir.create(dpath_source)
+      cat(paste0("Source data downloading to / loading from: ",dpath_source,". \n"))
     }
     rTempP <- rast(ext=lines |> ext(), resolution=sres,
                    crs=crs(lines))
     rTemps <- list(rTempG=rotate(project(rTempP,"epsg:4326")),rTempP=rTempP)
     centers = interp_track(lines |> filter(location=="track"),t_res,prestorm,wind=FALSE)|>
-      mutate(dt=difftime(lead(date),date,units="hours"))
+      mutate(dt=difftime(lead(date),date,units="hours"),
+             maxdate=max(date,na.rm=TRUE),
+             minstormdate=min(date[!is.na(source)],na.rm=TRUE))|>
+      fill(ID,name,.direction ="downup")
     if (!is.null(todir)){
       newdir <- paste0(todir,unique(lines$name),unique(format(lines$date,"%Y")),"_",sres,"_",t_res,"_PRECIP/")
       if (!dir.exists(newdir)) dir.create(newdir)
@@ -227,31 +220,19 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
       precip=NULL
     }else{
       if (parallel){
-        precip <- parallelprecip(centers,source,rTempP,newdir,dpath_source,overwrite,loadrasts,prestorm,cpus)
+        precip <- parallelprecip(centers,source,rTempP,dpath_source,prestorm,cpus)
       }else{
-        precip <-  do_precip(centers,source,rTempP,newdir,dpath_source,overwrite,loadrasts,prestorm)#do.call(fun,list(centers,rTempP,newdir,dpath,overwrite))
+        precip <-  unwrap(do_precip(centers,source,rTempP,dpath_source,prestorm))#do.call(fun,list(centers,rTempP,newdir,dpath,overwrite))
       }
     }
-
-    #if (agg){
-    #  precip <- agg_precip(precip,points,rTempP)
-    #}
-    ###  not sure how to handle wrapping or unwrapping the rasts in memory. Only important for parallel at the storm level
-    #if(is.null(todir)|loadrasts){
-      #names(precip) <- paste(unique(lines$name), rep(format(unique(terra::time(precip)),"%Y%m%d%H%M"),each=3),source,names(precip),sep="_")
-    #  if (!class(precip)=="PackedSpatRaster"){
-    #    precip <- wrap(precip)
-    #  }
-   # }
+    precip <- deliver_precip(precip,centers,prestorm,newdir,source,overwrite,loadrasts,cpus,ex_parallel)
     precips=append(precips,list(precip))
     cat("\n")
   }
-  names(precips) <- paste(unique(centers$ID[!is.na(centers$ID)]),"precip",sources,sep="_")
-  ###  how to maintain parallel setup for all storms...
-  if (parallel) sfStop()
+  names(precips) <- paste(unique(centers$ID[!is.na(centers$ID)]),"precip",tolower(sources),sep="_")
   precips
 }
-parallelprecip <- function(cents,source,r,todir=NULL,dpath=NULL,overwrt,lrsts,pre_storm,cpus) {
+parallelprecip <- function(cents,source,r,dpath=NULL,pre_storm,cpus) {
   on.exit(sfStop())
   ##  must wrap the template raster in order to pass to all the nodes
   r <- wrap(r)
@@ -265,46 +246,51 @@ parallelprecip <- function(cents,source,r,todir=NULL,dpath=NULL,overwrt,lrsts,pr
   ##  ensuring there is a multiple of the datasource timestep at each end, to ensure proper interpolation
   ##  ecmwf is hourly but is acquired by day, mswep is three-hourly, gpm is hourly
   if (source=="ecmwf") native <-  format(cents$date,"%M")=="00" else if (source=="gpm") native <- format(cents$date,"%M")%in% c("00","30")  else native <- format(cents$date,"%H:%M") %in% paste0(sprintf("%02d",seq(0,24,by=3)),":00")
-  cents_storm <- cents|>mutate(maxdate=max(date,na.rm=TRUE),minstormdate=min(date[!is.na(ID)],na.rm=TRUE),native=native) ## |>filter(date>=min(date[!is.na(ID)]))
-  splits <- split(which(cents_storm$native),cut(which(cents_storm$native),cpus))
+  cents <- cents |> mutate(native=native)
+  cents_storm <- cents|>filter(date>=unique(minstormdate)) ## |>filter(date>=min(date[!is.na(ID)]))
+  ## -1 cpus because we need the other for the predates
+  splits <- split(which(cents_storm$native),cut(which(cents_storm$native),cpus-1))
   cents_div <- lapply(1:(length(splits)-1),function(x){cents_storm[c(min(splits[[x]]):splits[[x+1]][1]),]})
   cents_div <- append(cents_div,list(cents_storm[min(splits[[length(splits)]]):nrow(cents_storm),]))
+  ##  now add in the prestorm dates
+  cents_div <- append(cents_div,list(cents|>filter(date<unique(minstormdate))),after=0)
   ###  the ecmwf requests cannot be made in parallel outside of the wf_request_batch, so that must be done separately
   ###  in that case, only the reprojection is done on parallel cpus
-  initiatepar(cpus)
   if (source=="ecmwf"){
     ### dont do one at a time, call get_ecmwf on everything first, including prestorm. Will redirect to wf_request_batch
-    reqs <- get_ecmwf(cents,todir,overwrt,dfiles,dpath)
-    reqs <- lapply(seq_along(cents_div),function(x,c,r) {
-      if (x<length(cents_div)) list(precips=wrap(r[[terra::time(r)<=min(c[[x+1]]$date,na.rm=TRUE)&terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
-      else list(precips=wrap(r[[terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
-      },c=cents_div,r=unwrap(reqs))
-    precip <- sfLapply(reqs,do_precip,source, r,todir,dpath,overwrt,lrsts,pre_storm)
+    precips <- get_ecmwf(cents,dfiles,dpath)
   } else if (source %in% c("mswep","gpm")){
     ##  first download out of parallel?
     precips <- do.call(match.fun(paste0("get_",source)),list(cents,dpath))
-    precips <- lapply(seq_along(cents_div),function(x,c,r) {
-      if (x<length(cents_div)) list(precips=wrap(r[[terra::time(r)<=min(c[[x+1]]$date,na.rm=TRUE)&terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
-      else list(precips=wrap(r[[terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
-    },c=cents_div,r=unwrap(precips))
-    precip <- sfLapply(precips,do_precip,source,r,todir,dpath,overwrt,lrsts,pre_storm)
   }else{ stop("unknown function call in 'parallelprecip'")}
-  precip_storm= rast(lapply(precip,function(x) unwrap(x$storm)))
-  precip_prestorm= rast(lapply(precip,function(x) unwrap(x$prestorm)))
-  if (!is.null(pre_storm)){
-    precip <- list(storm=wrap(precip_storm),prestorm=pre_sub_precips(precip_prestorm,cents,pre_storm,prll=TRUE))
-  }else{
-    precip <- list(storm=wrap(precip_storm))
-  }
-  if (!lrsts) return(precip)
-  else return(rast(lapply(precip,unwrap)))
+  precips <- lapply(seq_along(cents_div),function(x,c,r) {
+    if (x<length(cents_div)) list(precips=wrap(r[[terra::time(r)<=min(c[[x+1]]$date,na.rm=TRUE)&terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
+    else list(precips=wrap(r[[terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
+  },c=cents_div,r=unwrap(precips))
+  initiatepar(cpus)
+  precip <- sfClusterApplyLB(precips,do_precip,source,r,dpath,pre_storm)
+  # if (lrsts){
+  #   precip_storm= rast(lapply(precip,function(x) unwrap(x$storm)))
+  #   precip_prestorm= rast(lapply(precip,function(x) unwrap(x$prestorm)))
+  #   if (!is.null(pre_storm)){
+  #     precip <- list(storm=wrap(precip_storm),prestorm=pre_sub_precips(precip_prestorm,cents,pre_storm,prll=TRUE))
+  #   }else{
+  #     precip <- list(storm=wrap(precip_storm))
+  #   }
+  #   return(rast(lapply(precip,unwrap)))
+  # }else{
+  #   return(unique(unlist(precip)))
+  # }
+  precip <- rast(lapply(precip,unwrap))
+  precip <- precip[[order(terra::time(precip))]]
+  precip
 }
 
 #' internal Cyclones function, called by get_precip to route function calls for different data sources and to format final product
 #'
 #' 'do_precip()' is currently only called by the 'get_precip()' function and its parallel helper 'parallelprecip()'. The function routes processing to the
 #' appropriate data acquisition function depending on the desired data source, then applies the same set of routines to ensure all products are formatted consistently.
-do_precip <- function(cent,source,r,todir=NULL,dpath=NULL,overwrite=FALSE,loadrsts=FALSE,pre_storm){
+do_precip <- function(cent,source,r,dpath=NULL,pre_storm){
   ###  if called without parallel
   if (class(cent)[1]=="sf"){
     prll=FALSE
@@ -322,10 +308,6 @@ do_precip <- function(cent,source,r,todir=NULL,dpath=NULL,overwrite=FALSE,loadrs
   times = unique(cent$date[!is.na(cent$date)])
   mintime <- cent$mindate
   maxdate <- cent$maxdate
-  #stormtimes <- times[which(times>=min(times[!is.na(cent$ID)],na.rm=TRUE))]
-  #pretimes<- times[!times %in% stormtimes]
-  ###  now do the remaining days
-  #precips <- rast(precips)
   id <- unique(cent$ID[!is.na(cent$ID)])
   ###  add in the first hour of the next day for interpolation
   if (!is.null(precips2)) precips_p <- suppressWarnings(project(c(precips,rast(precips2)),unwrap(r)))
@@ -361,39 +343,10 @@ do_precip <- function(cent,source,r,todir=NULL,dpath=NULL,overwrite=FALSE,loadrs
   terra::units(precips_all) <- paste0("mm/",dt,"hr")
   ## when running in parallel, each iteration's last layer is the first layer from the next iteration, so remove it. except for the last iteration...
   if (!is.null(cent$maxdate)&&!any(cent$maxdate %in% cent$date)) precips_all <- precips_all[[-nlyr(precips_all)]]
-  ###  some requests get a full day at a time, trim the end days to drop times when the storm is non-existent
- # precips_all <- precips_all[[terra::time(precips_all) >= mintime &terra::time(precips_all) <= maxtime]]
-  if (any(terra::time(precips_all)>=min(cent$date[!is.na(cent$ID)],na.rm=TRUE))){
-    precips_storm <- precips_all[[terra::time(precips_all) %in% (cent|>filter(date>=min(date[!is.na(ID)],na.rm=TRUE))|>pull(date))]]
-    precips_storm <- rast(lapply(1:nlyr(precips_storm),function(x) mask(precips_storm[[x]], st_buffer(cent[which(cent$date==terra::time(precips_storm[[x]])),],500000))))
-  }else{
-    precips_storm <- NULL
-  }
-  if (!is.null(pre_storm)){
-    if (!prll) precips_prestorm <- pre_sub_precips(precips_all,cent,pre_storm,prll)
-    else precips_prestorm <- wrap(precips_all);precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}#precips_all[[!terra::time(precips_all) %in% terra::time(precips_storm)]]
-    precips_all <- list(storm=precips_storm,prestorm=precips_prestorm)
-  }else{
-    if (prll) precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}
-    precips_all <- list(storm=precips_storm)
-  }
-  tofiles <- paste0(todir,"/",source,"_",id,"_",format(time(unwrap(precips_storm)),"%Y%m%d%H%M"),".tif")
-  ###  only keep the files that arent already saved if overwrite is FALSE?
-  if (!is.null(todir)){
-    if (!overwrite){
-      if (!all(file.exists(tofiles))) {
-        precips_storm <- unwrap(precips_storm)[[!file.exists(tofiles)]]
-        writeRaster(precips_storm,tofiles[!file.exists(tofiles)],overwrite=overwrite)
-      }
-    }else{
-      writeRaster(unwrap(precips_storm),tofiles,overwrite=overwrite)
-      lapply(seq_along(pre_storm),function(x) writeRaster(unwrap(precips_prestorm[[x]]),paste0(todir,"/",source,"_",id,"_",pre_storm[x],"hrs_prestorm.tif"),overwrite=overwrite))
-    }
-  }
-  if (loadrsts|is.null(todir))  return(precips_all)
-  else return(tofiles)
+
+  return(wrap(precips_all))
 }
-pre_sub_precips <- function(prcips,stormpoints,prehours,prll){
+pre_sub_precips <- function(prcips,stormpoints,prehours,cpus=NULL){
   #pnts <- as.data.frame(app(prcips,"mean",na.rm=TRUE),xy=TRUE)
   #pnts <- pnts%>%st_as_sf(coords=c("x","y"),crs=crs(prcips))
   ### rains start about 500km out, so find the track that first gets within 500km of a point
@@ -408,61 +361,149 @@ pre_sub_precips <- function(prcips,stormpoints,prehours,prll){
   #start <- rasterize(pnts,prcips[[1]],field="start")
   #end <- rasterize(pnts,prcips[[1]],field="end")
   #dt <- as.numeric(unique(stormpoints$dt[!is.na(stormpoints$dt)]))
-  prcips <- prcips[[order(time(prcips))]]
-  matchtimes <-  match(stormpoints|>filter(date>=min(date[!is.na(ID)],na.rm=TRUE))|> pull(date),terra::time(prcips))
+  prcips <- prcips[[order(terra::time(prcips))]]
+  matchtimes <-  match(stormpoints|>filter(date>=minstormdate)|> pull(date),terra::time(prcips))
   #start_storm  <- app(start,function(x,y) y[x],y=matchtimes)
   #end_storm <- app(end,function(x,y) y[x],y=matchtimes)
   pre_rasts <- list()
+  ###  parallelization difficult because every worker node needs a copy of the full set of rasters...
+  if (!is.null(cpus)){
+    prcips_pre <- wrap(prcips)
+    matchtimes <- split(matchtimes,cut(seq_along(matchtimes), cpus, labels = FALSE))
+    on.exit(sfStop())
+    sfInit(parallel=TRUE,cpus=cpus)#,slaveOutfile= "C:/Users/BenjaminBranoff/Downloads/paralleltesting.txt")
+    sfLibrary(terra)
+    sfLibrary(sf)
+    sfLibrary(dplyr)
+    sfLibrary(snowfall)
+  }
   for (pr in prehours){
     #start_pre <- app(start,function(x,y) y[x]+pr/dt,y=matchtimes)
     ###  crop (mask) the files according to the start and end times
-    if (!prll){
-      prcips_cropped <- lapply(matchtimes, function(x){
+    if (is.null(cpus)){
+      prcips_cropped <- lapply(seq_along(matchtimes), function(x){
+        i=x
+        x=matchtimes[x]
         ###  first mask out the area ahead of the storm
-        prcips_pre <- mask(prcips[[time(prcips)==time(prcips[[x]])-pr*60*60]],stormpoints|>filter(date>=time(prcips[[x]]),date<time(prcips[[x]])+pr*60*60)|>st_buffer(500000))
+        prcips_pre <- mask(prcips[[time(prcips)==time(prcips[[x]])]],
+                           stormpoints|>filter(date>=time(prcips[[x]]),date<time(prcips[[x]])+pr*60*60)|>st_buffer(500000))
         ###  then the area where the storm currently is
         prcips_pre <- mask(prcips_pre,stormpoints|>filter(date==time(prcips[[x]]))|>st_buffer(500000),inverse=TRUE)
-        names(prcips_pre) <- gsub("precip.mm","prestormprecip.mm",names(prcips[[x]]))
-        #strt <- start_storm
-        #strt[strt<=x] <- NA
-        #strt[strt>=(x+pr/dt)] <- NA
-        #stp <- x+pr/dt
-        #stp
-        #stp[stp<x] <- NA
-        #prcips_pre[[x]] <- mask(prcips_pre[[x]], strt)
-        #prcips_pre[[x]] <- mask(prcips_pre[[x]], stp)
+        names(prcips_pre) <- gsub("precip.mm",paste0(pr,"hrsprestormprecip.mm"),names(prcips[[x]]))
+
+        cat(paste0("\rcalculating prestorm precip: %", round(100*i/length(matchtimes))))
         if (!is.na(terra::minmax(prcips_pre)[1])) prcips_pre
         else NULL
       })
+      prcips_cropped <- rast(prcips_cropped)
+      cat("\n")
     }else{
-      prcips_pre <- wrap(prcips)
-      prcips_cropped <- sfLapply(matchtimes, function(x,prcipspre,points){
-        prcipspre <- unwrap(prcipspre)
-        prcips_pre <- mask(prcipspre[[time(prcips)==time(prcips[[x]])-pr*60*60]],points|>filter(date>=time(prcipspre[[x]]),date<time(prcipspre[[x]])+pr*60*60)|>st_buffer(500000))
-        prcips_pre <- mask(prcips_pre,points|>filter(date==time(prcipspre[[x]]))|>st_buffer(500000),inverse=TRUE)
-        if (!is.na(terra::minmax(prcipspre)[1])) return(wrap(prcips_pre))
-        else return(NULL)
-      },prcipspre=prcips_pre,points=stormpoints)
-      prcips_cropped=lapply(prcips_cropped, unwrap)
+      # ###  parallel VERY slow
+      # browser()
+      # matchtimes_p <- lapply(matchtimes, function(x){
+      #   r <- prcips[[time(prcips) %in% time(prcips[[x]])-pr*60*60]]
+      #   pt <- stormpoints|>filter(date>=min(time(r)),date<max(time(r)+pr*60*60))|>st_buffer(500000)
+      #   list(points=pt,rast=wrap(r))
+      # })
+      # prcips_cropped <- sfLapply(matchtimes_p, function(x,p){
+      #   prcipspre <- unwrap(x$rast)
+      #   pts <- x$points
+      #   prcips_pre <- lapply(1:nlyr(prcipspre),function(y,pp,pt,p){
+      #     p_p <- mask(pp[[y]],pt|>filter(date>=time(pp[[y]]),date<time(pp[[y]])+p*60*60))
+      #     names(p_p) <- gsub("precip.mm","prestormprecip.mm",names(pp[[y]]))
+      #     if (!is.na(terra::minmax(p_p)[1])) return(p_p)
+      #     else return(NULL)
+      #   },pp=prcipspre,pt=pts,p=p)
+      #   prcips_pre <- Filter(Negate(is.null), prcips_pre)
+      #   prcips_pre <- rast(prcips_pre)
+      #   return(wrap(prcips_pre))
+      # },p=pr)
+
+    prcips_cropped <- rast(lapply(prcips_cropped,unwrap))
+    prcips_cropped <- prcips_cropped[[order(terra::time(prcips_cropped))]]
     }
-    prcips_cropped <- Filter(Negate(is.null), prcips_cropped)
-    prcips_cropped <- rast(prcips_cropped)
-    pre_rasts <- append(pre_rasts,list(wrap(prcips_cropped)))
-    names(pre_rasts)[length(pre_rasts)] <- paste0("prestorm_precip_",pr,"_hrs")
+    pre_rasts <- append(pre_rasts,list(prcips_cropped))
   }
+  names(pre_rasts) <- paste0("prestorm_precip_",prehours,"_hrs")
   pre_rasts
+}
 
-  # browser()
-  # ###  if pre-storm precip was desired, separate the pre times and mask out the hours outside of the desired range
-  # if (length(pretimes)>0){
-  #   precips_pre <- pre_sub_precips(precips_all,cent,pre_storm)
-  #   ### make a list of the prestorm and storm layers
-  #   precips_all <- list(storm=precips_storm,prestorm=precips_pre)
-  #   prefiles <- paste0(todir,"/",source,"prestorm_",pre_storm,"hrs_",id,".tif")
-  #   if (!is.null(todir)) for (pf in 1:length(prefiles)){ writeRaster(unwrap(precips_pre[[pf]]),prefiles[pf],overwrite=overwrite)}
-  # }else{
-  #   precips_all <- list(storm=precips_storm)
-  #   prefiles<- NULL
-  # }
-
+deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel){
+  ###  some requests get a full day at a time, trim the end days to drop times when the storm is non-existent
+  if (any(terra::time(precips_all)>=unique(cent$minstormdate))){
+    precips_storm <- precips_all[[terra::time(precips_all) %in% (cent|>filter(date>=unique(minstormdate))|>pull(date))]]
+    precips_storm <- rast(lapply(1:nlyr(precips_storm),function(x) mask(precips_storm[[x]], st_buffer(cent[which(cent$date==terra::time(precips_storm[[x]])),],500000))))
+  }else{
+    precips_storm <- precips_all
+  }
+  ###  separate the prestorm layers from the storm layers
+  if (!is.null(pre_storm)){
+    precips_prestorm <- pre_sub_precips(precips_all,cent,pre_storm,cpus=NULL)
+    #else precips_prestorm <- list(wrap(precips_all));precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}#precips_all[[!terra::time(precips_all) %in% terra::time(precips_storm)]]
+    precips_all <- list(storm=precips_storm,prestorm=precips_prestorm)
+    prefiles <- lapply(seq_along(pre_storm),function(x) paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(unwrap(precips_prestorm[[x]])),"%Y%m%d%H%M"),"_",pre_storm[x],"hrs_prestorm.tif"))
+  }else{
+    #if (prll) precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}
+    precips_all <- list(storm=precips_storm)
+    prefiles <- NULL
+  }
+  tofiles <- paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(unwrap(precips_storm)),"%Y%m%d%H%M"),".tif")
+  ###  only keep the files that arent already saved if overwrite is FALSE?
+  ### can only do this if out of parallel
+  ### for parallel, saving is done once all files are assembled
+  if (!is.null(todir)){
+    if (!overwrite){
+      if (!is.null(precips_storm)&&!all(file.exists(tofiles))) {
+        precips_storm <- unwrap(precips_storm)[[!file.exists(tofiles)]]
+        writeRaster(precips_storm,tofiles[!file.exists(tofiles)],overwrite=overwrite)
+      }
+      if (!is.null(pre_storm)) lapply(seq_along(pre_storm),function(x){
+        if (!all(file.exists(prefiles[[x]]))){
+          writeRaster(unwrap(precips_prestorm[[x]])[[!file.exists(prefiles[[x]])]],
+                      prefiles[[x]][!file.exists(prefiles[[x]])],overwrite=overwrite)
+        }
+      })
+      #else if(!file.exists(prefiles)) writeRaster(unwrap(precips_prestorm),prefiles,overwrite=overwrite)
+      ##  only one prefile, so no need to include here..unless we want to do it for every prestorm period...
+    }else{
+      writeRaster(unwrap(precips_storm),tofiles,overwrite=overwrite)
+      if (!is.null(pre_storm)) lapply(seq_along(pre_storm),function(x){
+        #prefilesx <- grep(pre_storm[x],prefiles,value=TRUE)
+        writeRaster(unwrap(precips_prestorm[[x]]),prefiles[[x]],overwrite=overwrite)
+      })
+    }
+  }
+  if (loadrsts|is.null(todir)){
+    if (ex_parallel) return(rapply(precips_all,wrap))
+    else(return(precips_all))
+  }
+  else return(Filter(Negate(is.null),c(tofiles,unlist(prefiles))))
+}
+load_precip <- function(storm,todir,loadrasts){
+  if (is.null(todir)){
+    todir=getwd()
+  }
+  meths <- list.dirs(paste0(todir,"/",storm,"/"))[-1]
+  precips = list.files(paste0(todir,"/",storm,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+  if (length(precips)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
+  out <- list()
+  for (m in meths){
+    precips = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
+    if (length(precips)>0){
+      #nmes <- gsub(".tif","",basename(precips))
+      storm = grep("prestorm",precips,invert=TRUE,value=TRUE)
+      if (any(grepl("prestorm",precips))){
+        prestorm = grep("prestorm",precips,value=TRUE)
+        pretimes <- unique(sapply(strsplit(prestorm,"_"),"[[",10))
+        prestorm = setNames(lapply(pretimes,function(x) grep(x,prestorm,value=TRUE)),paste0("prestorm_precip_",pretimes))
+      }
+      if (loadrasts){
+        storm = rast(storm)
+        prestorm <- lapply(prestorm,rast)
+      }
+      out <- append(out,list(list(storm=storm,prestorm=prestorm)))
+    }
+  }
+  names(out) <- basename(meths)
+  return(out)#setNames(list(out),paste(strsplit(precips[[1]],"_")[[1]][c(5:8)],collapse ="_")))
 }

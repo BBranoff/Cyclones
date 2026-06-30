@@ -1,0 +1,36 @@
+---
+title: "Cyclones"
+author: Ben Branoff
+date: January 23, 2026
+output: github_document
+---
+
+# Highlights
+* Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
+  * Choose data sources and temporal and spatial resolutions
+
+# Future Implementation Ideas
+* Integrate NISAR data for:
+  * Soil moisture
+  * Flooding extent
+  * Biomass loss
+* Integrate STAR NESDIS SAR for windspeed comparisons
+* Integrate LANDSAT for NDVI
+* Integrate available LiDAR or NAIP clouds for canopy structure
+* Integrate SLOSH for storm surge
+
+# Introduction
+For workflow vignettes, see the [documention website](https://bbranoff.github.io/Cyclones/)
+
+Cyclones is a collection of R utilities for producing variable temporal and spatial resolution gridded and time-stacked representations of historic tropical cyclone wind, precipitation, and storm surge. Processing can be done sequentially for low and moderate resolution products, or in parallel for high resolution. 
+
+For now, Cyclones is hosted on here on Github and can be installed as follows:
+
+```{r install,eval=FALSE}
+## install.packages("remotes")
+remotes::install_github("BBranoff/Cyclones")
+
+## for the development version (unstable)
+remotes::install_github("BBranoff/Cyclones@development")
+```
+

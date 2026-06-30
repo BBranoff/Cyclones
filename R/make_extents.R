@@ -22,6 +22,7 @@
 #' @importFrom sf st_sfc st_point st_transform st_polygon st_linestring st_as_sf st_buffer st_cast st_set_geometry st_set_crs st_drop_geometry st_union st_coordinates st_geometry st_geometry_type st_multilinestring st_line_merge st_line_sample
 #' @keywords internal
 make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="CONS",cpus=NULL){
+  browser()
   if (!"linestrings"%in% type&(!"polygons" %in% type)&(!"all" %in% type)) stop("geometry return type unknown")
   storm <- checkstorm(storm,agency)
   #if (mods=="Cyclones") mods <- data(Cyclones::storm_mods)
@@ -281,7 +282,6 @@ apply_tracks <- function(L,pts,m,typ){
       mutate(location="ROCI",kts=0,dist_m=ROCId*1852,source=rocisource)
     swaths <- bind_rows(swaths,ROCI)
   }
-
 
   if (!is.na(eyerad)) swaths <- rbind(swaths,eye)
   swaths <- swaths |>

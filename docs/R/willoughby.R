@@ -73,10 +73,6 @@ willoughby <- function(L,extents,tmpRas,todir,overwrite=FALSE,smooth=FALSE,eye_o
 
   message(paste0("\rCalculating Willoughby wind field for ",paste(unique(cens$name),unique(format(cens$date,"%Y")),sep="_"),
                  ": %",round(100*L/nrow(cens),1)),appendLF = FALSE)
-  if (!is.null(todir)){
-    if (!(file.exists(tofile)&overwrite==FALSE)) writeRaster(tmpRas,tofile,overwrite=overwrite)
-    return(tofile)
-  }else{
-    return(  wrap(tmpRas))
-  }
+  wrap(tmpRas)
+
 }

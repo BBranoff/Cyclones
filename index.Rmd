@@ -23,6 +23,14 @@ A note on lists, rasters, wrapping, and parallelization. Most of the functions i
 
 Parallel processing is mostly only necessary for multiple storms or for high resolution outputs and we recommend users familiarize themselves with the sequential default functions and only then utilize parallel when ready for batch processing. For internal functions, parallelism is done via snowfall at the timestep level. This is best for high resolution (both temporal (\<15 mins) and/or spatial (\<10000 m)) outputs and especially when producing Thin Plate Spline (TPS) outputs, and is probably best utilized if at least 5-10 cpus could be set aside for the effort, but there hasnt been any in-depth test of performance yet. Parallelizing at the storm level is demonstrated below in snowfall, but could be done with other libraries at the user's discretion and also could be done with only a few (\<5) cpus. The functions will not allow you to do both internal and external parallelization, but otherwise, the user is expected to know how many cpus can be safely utilized on their system.
 
+# Installation
+Cyclones is no yet available on CRAN but can be downloaded from Github. Probably the easiest way to do this is via the 'remotes' package.
+
+```{r install,eval=FALSE}
+install.packages('remotes')
+remotes::install_github("BBranoff/Cyclones")
+```
+
 # Get Storm Tabular Data
 Use the ‘get_storms()’ function to gather the available time series,
 location, and meteorological information for a particular storm. If a local, 
@@ -55,18 +63,18 @@ names(storms)
 
 ##  alternatively, all of the data can be downloaded and filtered later
 ##  we recommend this if wind models need to be constructed in later steps
-##  downloading all storms or any storm distant historical storm will likely 
+##  downloading all storms or any distant historical storm will likely 
 ##  require extending the timeout time
 ##  options(timeout = 300)
 allstorms <- get_storms(ib_filt="ALL")
 storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 
 ## the result is a named list of data pertinent to each storm
-## Names are consistent throughout Cyclones and include the name, season, basin, and ID#
+## Names are recycled throughout Cyclones and include the name, season, basin, and ID#
 names(storms)
 ```
 
-The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But, many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the other agency values will first be converted to "1 minute" intervals using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. 
+The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the other agency values will first be converted to "1 minute" intervals using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. 
 
 ## Make Wind Extent Spatial Features
 In some cases, it may be desired to produce simple spatial features of important storm extents, such as the radius of maximum wind, the eye wall diameter, or the radius of the last closed isobar (ROCI). The make_extents() function will do this utilizing the native data, which is typically in 3hr intervals. The function will also interpolate data to a greater frequency using the 't_res' argument, and can incorporate models via the 'mods' argument to fill in missing extents. See the 'Winds' vignette for more details. 
@@ -79,7 +87,7 @@ windextents <- make_extents(storms,type=c("linestrings","polygons"))
 
 ##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)
 ##  use the t_res parameter to adjust temporal resolution (in minutes)
-windextents <- lapply(storms,make_extents)
+windextents <- lapply(storms,make_extents,t_res=60)
 
 ```
 
@@ -160,13 +168,13 @@ print(Cam/Sin)
 
 
 ## Build Wind Rasters
-Next, we interpolate and/or model the winds across space and time, creating a more complete gridded representation that can be useful in any number of applications. This is accomplished through either one of three theoretical models, or through a more empirical Thin Plate Spline, which utilizes the above linestrings. The 'make_winds' function accepts both spatial and temporal resolution specifications. Although accuracy and smoothness are optimized at smaller resolutions, computation times suffer. For initial testing, a spatial resolution of 20000 m and a temporal resolution of 60 mins is reasonable and default. All storm layers are projected onto a Lambert Azimuthal Equal Area reference system that is centered on the storm's extent, which preserves area across large geographic regions and avoids geographic coordinate issues at the 180th meridian.
+Next, we interpolate and/or model the winds across space and time, creating a more complete gridded representation that can be useful in any number of applications. This is accomplished through either one of three theoretical models, or through a more empirical Thin Plate Spline, which utilizes the above linestrings. The 'get_wind' function accepts a spatial resolution specification and will interpolate results to the temporal resolution of the input data. Although accuracy and smoothness are optimized at smaller resolutions, computation times suffer. For initial testing, a spatial resolution of 20000 m and a temporal resolution of 60 mins is reasonable and default. All storm layers are projected onto a Lambert Conformal Conic reference system that is centered on the storm's extent, which preserves area across large geographic regions and avoids geographic coordinate issues at the 180th meridian.
 
 ```{r false-getwinds,eval=FALSE}
 ###  the following will report multiple warnings because the Camille storm does not have any complete wind fields
 ###  which are required for most of the different methods. Willoughby includes a theoretical calculation for the
 ###  radius of maximum winds, so it is the only method that can be used.
-###  see the 'Winds" vignette for more information on included modeled values for these methods
+###  see the 'Winds" vignette for more information on including modeled values for these methods
 winds <- lapply(windextents,get_wind,methods=c("all"))
 
 ###  as discussed above, the layers are wrapped in case parallel processing was used
