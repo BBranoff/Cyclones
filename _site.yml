@@ -6,8 +6,8 @@ navbar:
     - text: "Home"
       href: index.html
     - text: "Winds"
-      href: winds.html
+      href: Winds.html
     - text: "Rains"
-      href: rains.html
+      href: Rains.html
     - text: "Storm Surge"
       href: Storm-Surge.html
