@@ -246,10 +246,10 @@ $(document).ready(function () {
   <a href="index.html">Home</a>
 </li>
 <li>
-  <a href="winds.html">Winds</a>
+  <a href="Winds.html">Winds</a>
 </li>
 <li>
-  <a href="rains.html">Rains</a>
+  <a href="Rains.html">Rains</a>
 </li>
 <li>
   <a href="Storm-Surge.html">Storm Surge</a>
@@ -326,6 +326,14 @@ functions will not allow you to do both internal and external
 parallelization, but otherwise, the user is expected to know how many
 cpus can be safely utilized on their system.</p>
 </div>
+<div id="installation" class="section level1">
+<h1>Installation</h1>
+<p>Cyclones is no yet available on CRAN but can be downloaded from
+Github. Probably the easiest way to do this is via the ‘remotes’
+package.</p>
+<pre class="r"><code>install.packages(&#39;remotes&#39;)
+remotes::install_github(&quot;BBranoff/Cyclones&quot;)</code></pre>
+</div>
 <div id="get-storm-tabular-data" class="section level1">
 <h1>Get Storm Tabular Data</h1>
 <p>Use the ‘get_storms()’ function to gather the available time series,
@@ -344,19 +352,19 @@ names(storms)
 
 ##  alternatively, all of the data can be downloaded and filtered later
 ##  we recommend this if wind models need to be constructed in later steps
-##  downloading all storms or any storm distant historical storm will likely 
+##  downloading all storms or any distant historical storm will likely 
 ##  require extending the timeout time
 ##  options(timeout = 300)
 allstorms &lt;- get_storms(ib_filt=&quot;ALL&quot;)
 storms &lt;- allstorms[grep(&quot;CAMILLE_1969|SINLAKU_2026&quot;,names(allstorms))]
 
 ## the result is a named list of data pertinent to each storm
-## Names are consistent throughout Cyclones and include the name, season, basin, and ID#
+## Names are recycled throughout Cyclones and include the name, season, basin, and ID#
 names(storms)</code></pre>
 <p>The ‘get_storms()’ function will automatically consolidate variables
 across agencies. If only one value is available for a given variable
 (for example, among the ’_WIND’ variable versions of USA_WIND, WMO_WIND,
-WELLINGTON_WIND etc.), it will be used. But, many storms reflect
+WELLINGTON_WIND etc.), it will be used. But many storms reflect
 reporting from multiple agencies that need to be consolidated in some
 way for further processing. Because the ‘USA’ variables have less
 missing values than the other agencies across the entire dataset, they
@@ -391,7 +399,7 @@ windextents &lt;- make_extents(storms,type=c(&quot;linestrings&quot;,&quot;polyg
 
 ##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)
 ##  use the t_res parameter to adjust temporal resolution (in minutes)
-windextents &lt;- lapply(storms,make_extents)</code></pre>
+windextents &lt;- lapply(storms,make_extents,t_res=60)</code></pre>
 <p>These spatial features can also be good for certain storm
 visualizations in which a fully gridded raster is not necessary.</p>
 <div class="figure">
@@ -428,25 +436,22 @@ has much more native wind extents.
 creating a more complete gridded representation that can be useful in
 any number of applications. This is accomplished through either one of
 three theoretical models, or through a more empirical Thin Plate Spline,
-which utilizes the above linestrings. The ‘make_winds’ function accepts
-both spatial and temporal resolution specifications. Although accuracy
-and smoothness are optimized at smaller resolutions, computation times
-suffer. For initial testing, a spatial resolution of 20000 m and a
-temporal resolution of 60 mins is reasonable and default. All storm
-layers are projected onto a Lambert Azimuthal Equal Area reference
-system that is centered on the storm’s extent, which preserves area
-across large geographic regions and avoids geographic coordinate issues
-at the 180th meridian.</p>
+which utilizes the above linestrings. The ‘get_wind’ function accepts a
+spatial resolution specification and will interpolate results to the
+temporal resolution of the input data. Although accuracy and smoothness
+are optimized at smaller resolutions, computation times suffer. For
+initial testing, a spatial resolution of 20000 m and a temporal
+resolution of 60 mins is reasonable and default. All storm layers are
+projected onto a Lambert Conformal Conic reference system that is
+centered on the storm’s extent, which preserves area across large
+geographic regions and avoids geographic coordinate issues at the 180th
+meridian.</p>
 <pre class="r"><code>###  the following will report multiple warnings because the Camille storm does not have any complete wind fields
 ###  which are required for most of the different methods. Willoughby includes a theoretical calculation for the
 ###  radius of maximum winds, so it is the only method that can be used.
-###  see the &#39;Winds&quot; vignette for more information on included modeled values for these methods
+###  see the &#39;Winds&quot; vignette for more information on including modeled values for these methods
 winds &lt;- lapply(windextents,get_wind,methods=c(&quot;all&quot;))
 
-###  as discussed above, the layers are wrapped in case parallel processing was used
-###  unwrap them
-winds_Camille &lt;- lapply(winds$CAMILLE_1969_NA_1969226N18280,unwrap)
-winds_Sinlaku &lt;- lapply(winds$SINLAKU_2026_WP_2026099N09152,unwrap)
 ###  they are now stored in separate lists, one for each method
 ###  they can stay like this or we can combine everything
 winds_Camille &lt;- rast(winds_Camille)

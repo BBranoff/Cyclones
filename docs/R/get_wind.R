@@ -137,7 +137,6 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
       msw <- lapply(seq_along(dates),fun,stormextent,rTemps,newdir,overwrite,eye_option=eye_option)
     }
     msw <- Filter(Negate(is.null), msw)
-
     msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel)
     winds=append(winds,list(msw))
     cat("\n")
@@ -201,32 +200,37 @@ parallelwind <- function(dates,cents, r,cpus,meth,todir=NULL,overwrt,cluster) {
 }
 deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
   #tofiles <-paste0(todir,"/tps_",unique(tracks$ID[!is.na(tracks$ID)]),"_",unique(format(d1,"%Y%m%d%H%M")),".tif")
-  tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(time(rast(lapply(winds,unwrap))),"%Y%m%d%H%M"),".tif")
-  ###  only keep the files that arent already saved if overwrite is FALSE?
-  ### can only do this if out of parallel
-  ### for parallel, saving is done once all files are assembled
-  browser()
-  if (!is.null(todir)){
-    if (!overwrite){
-      if (!all(file.exists(tofiles))) {
-        winds <- unwrap(winds)[[!file.exists(tofiles)]]
-        writeRaster(winds,tofiles[!file.exists(tofiles)],overwrite=overwrite)
+  if (class(winds[[1]])!="character") {
+    winds <- lapply(winds, unwrap)
+    ###  only keep the files that arent already saved if overwrite is FALSE?
+    ### can only do this if out of parallel
+    ### for parallel, saving is done once all files are assembled
+    tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M"),".tif")
+    if (!is.null(todir)){
+      if (!overwrite){
+        if (!all(file.exists(tofiles))) {
+          winds <- winds[!file.exists(tofiles)]
+          tofiles <- tofiles[!file.exists(tofiles)]
+          lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
+        }
+      }else{
+        lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
       }
-    }else{
-      writeRaster(unwrap(winds),tofiles,overwrite=overwrite)
     }
+  }else{
+   winds <- unlist(winds)
   }
   if (loadrsts|is.null(todir)){
-    if (ex_parallel) return(lapply(winds,wrap))
-    else(return(winds))
+    if (ex_parallel) return(wrap(rast(winds)))
+    else(return(rast(winds)))
   }
 }
 load_wind <- function(storm,todir,loadrasts){
   if (is.null(todir)){
     todir=getwd()
   }
-  meths <- list.dirs(paste0(todir,"/",storm,"_WIND/"))[-1]
-  winds = list.files(paste0(todir,"/",storm,"_WIND/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+  meths <- list.dirs(paste0(todir,"/",storm,"/"))[-1]
+  winds = list.files(paste0(todir,"/",storm,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
   if (length(winds)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
   out <- list()
   for (m in meths){

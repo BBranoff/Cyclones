@@ -4,16 +4,7 @@
 \alias{do_precip}
 \title{internal Cyclones function, called by get_precip to route function calls for different data sources and to format final product}
 \usage{
-do_precip(
-  cent,
-  source,
-  r,
-  todir = NULL,
-  dpath = NULL,
-  overwrite = FALSE,
-  loadrsts = FALSE,
-  pre_storm
-)
+do_precip(cent, source, r, dpath = NULL, pre_storm)
 }
 \description{
 'do_precip()' is currently only called by the 'get_precip()' function and its parallel helper 'parallelprecip()'. The function routes processing to the

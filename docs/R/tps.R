@@ -115,7 +115,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   ###   Using the original ROCI can create extreme and unnatural shifts in wind Velocity with the thin spline method
   ###   to avoid this, bump the 0 velocity line out a bit further
   ###   we will still zero out the original ROCI later, this is only for the thine spline interpolation
-  st_agr(outer) <- "constant"  ##  to avoid sf warning about repeating sub geometries
+  sf::st_agr(outer) <- "constant"  ##  to avoid sf warning about repeating sub geometries
   line <- bind_rows(line,
                     st_buffer(outer|>st_cast("POLYGON"),outer$dist.m*.1) |>
                       mutate(location="ROCI2",dist.m=dist.m+dist.m*.1)|>st_cast("LINESTRING"))

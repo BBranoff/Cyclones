@@ -41,14 +41,11 @@ downloaded from the web.
 ```{r load-data,echo=FALSE,results='hide',message=FALSE,warning=FALSE}
 devtools::load_all()
 library(ggplot2)
-#saveRDS(stuff,"E:/OneDrive - USDA/Hurricanes/R Package/READMEstuff.rds")
-#stuff <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/READMEstuff.rds")
-#windextents <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/windextents.rds")
-#allstorms <- stuff$allstorms
-#storms <- stuff$storms
 #allstorms <- get_storms("I:/ibtracs.ALL.list.v04r01.csv")
+#allstorms <- stuff$allstorms
 #storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
-windextents <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/windextents_60_unmodeled.rds")
+#windextents <- lapply(storms,make_extents,t_res=60)
+windextents <- readRDS("I:/Cyclone Products/Wind/windextents_60.rds")
 ```
 
 ```{r false-load-data,eval=FALSE}
@@ -177,10 +174,6 @@ Next, we interpolate and/or model the winds across space and time, creating a mo
 ###  see the 'Winds" vignette for more information on including modeled values for these methods
 winds <- lapply(windextents,get_wind,methods=c("all"))
 
-###  as discussed above, the layers are wrapped in case parallel processing was used
-###  unwrap them
-winds_Camille <- lapply(winds$CAMILLE_1969_NA_1969226N18280,unwrap)
-winds_Sinlaku <- lapply(winds$SINLAKU_2026_WP_2026099N09152,unwrap)
 ###  they are now stored in separate lists, one for each method
 ###  they can stay like this or we can combine everything
 winds_Camille <- rast(winds_Camille)
@@ -192,9 +185,9 @@ winds_Sinlaku <- rast(winds_Sinlaku)
 library(terra)
 library(sf)
 winds_Camille <- get_wind("CAMILLE1969_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/")[[1]]
-Camdate = c("196908171100|196908180400|196908181200")
+Camdate = c("196908171100","196908180400","196908181200")
 windsCam_msw <- winds_Camille[[grep("msw",names(winds_Camille))]]
-windsCam_msw <- windsCam_msw[[grep(Camdate,names(windsCam_msw))]]
+windsCam_msw <- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format="%Y%m%d%H%M",tz="UTC")]]
 windsCammsw_df <- as.data.frame(windsCam_msw,xy=TRUE)
 names(windsCammsw_df)[3:5] <- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep="_")
 windsCammsw_df <- windsCammsw_df |>
@@ -212,14 +205,17 @@ gg1 <- ggplot(data=windsCammsw_df) +
   ylim(-602360,546405)+
   theme(axis.title = element_blank(),panel.grid=element_blank())
 
-winds_Sinlaku <- get_wind("SINLAKU2026_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/")[[1]]
-Sindate = c("202604141000|202604141600|202604150000")
-windsSin_msw <- winds_Sinlaku[[grep("msw",names(winds_Sinlaku))]]
-windsSin_msw <- windsSin_msw[[grep(Sindate,names(windsSin_msw))]]
-windsSinmsw_df <- as.data.frame(windsSin_msw,xy=TRUE)
-names(windsSinmsw_df)[3:14] <- paste(names(windsSinmsw_df)[3:14],rep(unique(time(windsSin_msw))),sep="_")
-windsSinmsw_df <- windsSinmsw_df |>
-  tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("name","date","method","unit","time"))
+winds_Sinlaku <- get_wind("SINLAKU2026_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/")
+Sindate = c("202604141000","202604141600","202604150000")
+windsSinmsw_df  <- lapply(winds_Sinlaku, function(x){
+  x <- x[[grep("msw",names(x))]]
+  x <- x[[time(x) %in% as.POSIXct(Sindate,format="%Y%m%d%H%M",tz="UTC")]]
+  df <- as.data.frame(x,xy=TRUE)
+  names(df)[3:5] <- paste(names(df)[3:5],rep(unique(time(x))),sep="_")
+  df |>
+  tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","time"))
+} )
+windsSinmsw_df <- do.call(rbind,windsSinmsw_df)
 gg2 <-ggplot(data=windsSinmsw_df) +
   geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(method~time)+
@@ -320,21 +316,21 @@ ggplot(data=PrecipsCamille_df) +
 ```
 ```{r plot_precip,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=5,fig.cap="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998."}
 precip <- lapply(c("CAMILLE1969_25000_60_PRECIP","SINLAKU2026_25000_60_PRECIP","SINLAKU2026_10000_60_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip/v2",loadrasts=TRUE)
-precip_Camille <- precip[[1]]$`PRECIP/ecmwf/ecmwf_CAMILLE_1969_NA`#precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
-precip_Sinlaku <- list(precip[[2]]$`PRECIP/ecmwf/ecmwf_SINLAKU_2026_WP`,#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
-                       precip[[3]]$`PRECIP/mswep/mswep_SINLAKU_2026_WP`)#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
+precip_Camille <- precip[[1]]$ecmwf$storm#precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
+precip_Sinlaku <- list(precip[[2]]$ecmwf$storm,#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
+                       precip[[3]]$mswep$storm)#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
 PrecipsCamille_df <- as.data.frame(precip_Camille[[100:102]],xy=TRUE)
 names(PrecipsCamille_df)[-c(1,2)] <- paste(names(PrecipsCamille_df)[-c(1,2)],time(precip_Camille[[100:102]]),sep="_")
 PrecipsCamille_df <-PrecipsCamille_df |>
-   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("name","date","method","unit","source","time"))
+   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time"))
 PrecipsSinlaku_df1 <- as.data.frame(precip_Sinlaku[[1]][[time(precip_Sinlaku[[1]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],xy=TRUE)
 names(PrecipsSinlaku_df1)[-c(1,2)] <- paste(names(PrecipsSinlaku_df1)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
 PrecipsSinlaku_df2 <- as.data.frame(precip_Sinlaku[[2]][[time(precip_Sinlaku[[2]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],xy=TRUE)
 names(PrecipsSinlaku_df2)[-c(1,2)] <- paste(names(PrecipsSinlaku_df2)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
 PrecipsSinlaku_df <-bind_rows(PrecipsSinlaku_df1 |>
-   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("name","date","method","unit","source","time")),
+   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")),
    PrecipsSinlaku_df2 |>
-   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("name","date","method","unit","source","time")))
+   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")))
 Cam <- ggplot(data=PrecipsCamille_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(method~time)+

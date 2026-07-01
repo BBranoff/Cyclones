@@ -496,6 +496,8 @@ load_precip <- function(storm,todir,loadrasts){
         prestorm = grep("prestorm",precips,value=TRUE)
         pretimes <- unique(sapply(strsplit(prestorm,"_"),"[[",10))
         prestorm = setNames(lapply(pretimes,function(x) grep(x,prestorm,value=TRUE)),paste0("prestorm_precip_",pretimes))
+      }else{
+        prestorm=NULL
       }
       if (loadrasts){
         storm = rast(storm)

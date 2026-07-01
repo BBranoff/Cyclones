@@ -11,7 +11,8 @@ get_surge(
   cpus = NULL,
   overwrite = FALSE,
   returnpoints = TRUE,
-  usgskey = NULL
+  usgskey = NULL,
+  loadrasts = FALSE
 )
 }
 \arguments{
