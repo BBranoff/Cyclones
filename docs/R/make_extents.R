@@ -282,7 +282,6 @@ apply_tracks <- function(L,pts,m,typ){
     swaths <- bind_rows(swaths,ROCI)
   }
 
-
   if (!is.na(eyerad)) swaths <- rbind(swaths,eye)
   swaths <- swaths |>
     group_by(kts,location) |>

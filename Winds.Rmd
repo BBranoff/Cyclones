@@ -35,7 +35,7 @@ library(dplyr)
 library(sf)
 library(terra)
 #stuff <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/READMEstuff.rds")
-windextents <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/windextents_30.rds")
+windextents <- readRDS("I:/Cyclone Products/Wind/windextents_30.rds")
 windextents_unmodeled <- windextents$windextents_unmodeled
 windextents <- windextents$windextents
 #allstorms <- get_storms("I:/ibtracs.ALL.list.v04r01.csv")
@@ -476,7 +476,7 @@ comps_r_filt <- comps_r |> group_by(sonde, storm, method,var) |>
   filter(ZW.m==min(ZW.m,na.rm=TRUE)) |>
   ungroup()
 ```
-```{r compare_winds,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=9,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
+```{r compare_winds,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=10,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
 ##  Either the rasters, the linestrings, or both can be compared against the sondes
 comps  <- readRDS("I:/Cyclone Products/Wind/sondestorms/sondecomps.RDS")
 sondeextents <- readRDS("I:/Cyclone Products/Wind/sondestorms/sondestorm_extents.rds")
@@ -534,7 +534,7 @@ ggmsw
 
 The above graphic represents the drop sonde comparisons for the raster products of about 40 storms since 2016, each at 5 km spatial resolution and 10 min temporal resolution. Although each storm will be different, overall the TPS method outperforms the other models in terms of the root mean square error (RMSE). Most of the error for all methods stems from sonde locations in the eye-wall, where wind dynamics can change drastically over relatively small distances. Future comparison will also incoporate [SAR wind measurements](https://www.star.nesdis.noaa.gov/socd/mecb/sar/sarwinds_tropical.php). 
 
-```{r compare_winds2,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=9,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
+```{r compare_winds2,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=11,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
 
 ggdir <- ggplot(comps_r_filt|>filter(var=="windir.deg",ZW.m<10)) +
   geom_point(aes(x=WD,y=value,col=storm))+

@@ -205,6 +205,7 @@ deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel
   ###  only keep the files that arent already saved if overwrite is FALSE?
   ### can only do this if out of parallel
   ### for parallel, saving is done once all files are assembled
+  browser()
   if (!is.null(todir)){
     if (!overwrite){
       if (!all(file.exists(tofiles))) {
