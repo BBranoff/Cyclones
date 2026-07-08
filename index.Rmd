@@ -5,7 +5,8 @@ title: "Introduction"
 # Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions
-
+  * Compare calculated winds against Hurricane Hunter dropsondes
+  
 # Future Implementation Ideas
 * Integrate NISAR data for:
   * Soil moisture

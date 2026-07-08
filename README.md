@@ -1,25 +1,6 @@
 Cyclones
 ================
-Ben Branoff
-January 23, 2026
-
-# Highlights
-
-- Produce raster images of cyclone winds, rains, and storm surge, either
-  at specific times or as aggregate
-  - Choose data sources and temporal and spatial resolutions
-  - Compare calculated winds against Hurricane Hunter dropsondes
-
-# Future Implementation Ideas
-
-- Integrate NISAR data for:
-  - Soil moisture
-  - Flooding extent
-  - Biomass loss
-- Integrate STAR NESDIS SAR for windspeed comparisons
-- Integrate LANDSAT for NDVI
-- Integrate available LiDAR or NAIP clouds for canopy structure
-- Integrate SLOSH for storm surge
+July, 2026
 
 # Introduction
 
@@ -42,3 +23,35 @@ remotes::install_github("BBranoff/Cyclones")
 ## for the development version (unstable)
 remotes::install_github("BBranoff/Cyclones@development")
 ```
+
+# Highlights
+
+- Produce raster images of cyclone winds, rains, and storm surge, either
+  at specific times or as aggregate
+  - Choose data sources and temporal and spatial resolutions
+- Ingest storm tracks and wind and pressure extents from IBTrACS
+  - Consolidate data across meteorological agencies
+- For winds:
+  - Choose among Boose, Holland, Willoughby, or Thin Plate Spline
+    methods
+  - Model missing extents from similar storms
+  - Calculate maximum sustained winds, wind direction, and power
+  - Compare calculated winds against Hurricane Hunter drop sondes
+- For rainfall:
+  - Choose among ERA5, MSWEP, or GPM sources
+  - Calculate PRE-storm and storm precipitation
+- For storm surge:
+  - Conglomerate across measured (NOAA & USGS), and modeled (CMIP6)
+    water levels
+  - Compare against SRTM elevation to approximate water depth
+
+# Future Implementation Ideas
+
+- Integrate NISAR data for:
+  - Soil moisture
+  - Flooding extent
+  - Biomass loss
+- Integrate STAR NESDIS SAR for windspeed comparisons
+- Integrate LANDSAT for NDVI
+- Integrate available LiDAR or NAIP clouds for canopy structure
+- Integrate SLOSH for storm surge
