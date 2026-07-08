@@ -93,8 +93,6 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
     t_res <- difftime(stormextent|>filter(location=="track points")|>pull(date),lead(stormextent|>filter(location=="track points")|>pull(date)),units="mins")|>as.numeric()|>unique()|>abs()|>mean(na.rm=TRUE)
     todir <-  paste0(todir,unique(stormextent$name),unique(format(stormextent$date,"%Y")),"_",s_res,"_",t_res,"_WIND")
     if (!dir.exists(todir)) dir.create(todir)
-    if (overwrite==FALSE) cat(paste0("Saving to: ",todir,". Overwrite set to FALSE, existing files will be SKIPPED.","\n"))
-    else cat(paste0("Saving to: ",todir,". Overwrite set to TRUE, existing files will be REPLACED.","\n"))
   }
   ####  also create break to aggregate the files if resolution is too high
   ##  create template raster for all methods to project upon
@@ -118,11 +116,12 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
   for (meth in tolower(methods)){
     if (meth=="tps"){
       ##  can only compute TPS on non-missing wind extents
-      dates = stormextent |> filter(!location %in% c("track","track points"))|>pull(date)|>unique()
+      dates = stormextent |> filter(!location %in% c("track","track points"),source=="native")|>pull(date)|>unique()
       ##  the last date will be included on the previous timestep, so remove it
       if (length(dates)>1) dates <- dates[-length(dates)]
       cat(paste0(round(100*length(dates)/length(unique(stormextent$date))),"% of original data included in TPS calculation. Adjust t_res for more complete inclusion.\n"))
     } else {
+      stormextent= stormextent |>filter(source=="native")
       dates=stormextent |> filter(location=="track points")|>pull(date)|>unique()
     }
     if (!is.null(todir)){
@@ -137,6 +136,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
       msw <- lapply(seq_along(dates),fun,stormextent,rTemps,newdir,overwrite,eye_option=eye_option)
     }
     msw <- Filter(Negate(is.null), msw)
+    msw <- unlist(interp_rast(msw,stormextent,parallel))
     msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel)
     winds=append(winds,list(msw))
     cat("\n")
@@ -196,7 +196,7 @@ parallelwind <- function(dates,cents, r,cpus,meth,todir=NULL,overwrt,cluster) {
   #msw <- pblapply(seq_along(dates),meth, cents, r,todir,overwrt,cl=cluster)
   #msw <- sfLapply(seq_along(dates),meth, cents, r,todir,overwrt)
   msw <- sfClusterApplyLB(seq_along(dates),meth, cents, r,todir,overwrt)
-  lapply(msw,unwrap)
+  msw
 }
 deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
   #tofiles <-paste0(todir,"/tps_",unique(tracks$ID[!is.na(tracks$ID)]),"_",unique(format(d1,"%Y%m%d%H%M")),".tif")
@@ -207,13 +207,16 @@ deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel
     ### for parallel, saving is done once all files are assembled
     tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M"),".tif")
     if (!is.null(todir)){
+      cat(paste0("Saving to: ",todir,".","\n"))
       if (!overwrite){
+        cat("Overwrite set to FALSE, existing files will be SKIPPED.\n")
         if (!all(file.exists(tofiles))) {
           winds <- winds[!file.exists(tofiles)]
           tofiles <- tofiles[!file.exists(tofiles)]
           lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
         }
       }else{
+        cat("Overwrite set to TRUE, existing files will be REPLACED.\n")
         lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
       }
     }

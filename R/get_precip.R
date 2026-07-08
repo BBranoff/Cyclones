@@ -73,7 +73,9 @@
 #' @importFrom dplyr filter arrange
 #' @importFrom terra writeRaster
 get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_res=NULL,prestorm=NULL,
-                       agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=FALSE){
+                       agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=TRUE){
+  ###  if the supplied input are directories of previously saved rasters, load those
+  if (class(storm)[1]=="character"){ return(load_precip(storm,todir,loadrasts))
   #############
   ###  checks and initiate variables
   ###########
@@ -92,8 +94,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
   if (length(prestorm)==1&is.logical(prestorm)&&prestorm) prestorm=48
   else if(!is.null(prestorm)&&!all(is.numeric(prestorm))) stop("pre storm hours format must be either TRUE or numeric for number of hours before storm.")
   else if(any(prestorm/24 > 7)) warning("pre storm hours exceeds 7 days, expect long data download period.")
-  ###  if the supplied input are directories of previously saved rasters, load those
-   if (class(storm)[1]=="character"){ return(load_precip(storm,todir,loadrasts))
+
   }else if (class(storm)[1]%in% c("vctrs_list_of","list","tbl_df","sf")){
     ###  this must be done before the directory/file check
     ###  if multiple storms are passed to the function,
@@ -436,6 +437,7 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
   }else{
     precips_storm <- precips_all
   }
+  browser()
   ###  separate the prestorm layers from the storm layers
   if (!is.null(pre_storm)){
     precips_prestorm <- pre_sub_precips(precips_all,cent,pre_storm,cpus=NULL)

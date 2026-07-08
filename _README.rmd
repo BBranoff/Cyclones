@@ -8,6 +8,7 @@ output: github_document
 # Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions
+  * Compare calculated winds against Hurricane Hunter dropsondes
 
 # Future Implementation Ideas
 * Integrate NISAR data for:
@@ -24,7 +25,7 @@ For workflow vignettes, see the [documention website](https://bbranoff.github.io
 
 Cyclones is a collection of R utilities for producing variable temporal and spatial resolution gridded and time-stacked representations of historic tropical cyclone wind, precipitation, and storm surge. Processing can be done sequentially for low and moderate resolution products, or in parallel for high resolution. 
 
-For now, Cyclones is hosted on here on Github and can be installed as follows:
+For now, Cyclones is hosted only here on Github and can be installed as follows:
 
 ```{r install,eval=FALSE}
 ## install.packages("remotes")

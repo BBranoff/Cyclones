@@ -5,16 +5,16 @@
 tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,eye_option="given",cpus=FALSE){
   #reye <- r
   r <- rast(unwrap(r$rTempP))
-  centers=tracks |>filter(location=="track points")|>mutate(dt=difftime(lead(date),date,units="hours"))
+  centers=tracks |>filter(location=="track points",source=="native")|>mutate(dt=difftime(lead(date),date,units="hours"))
   lines <- tracks |> filter(date %in% centers$date)
-  if (L==length(unique(lines$date[!lines$location=="track points"]))){return(NULL)}
-  lines$date <- as.POSIXct(lines$date,tz="UTC")
+  #if (L==length(unique(lines$date[!lines$location=="track points"]))){return(NULL)}
+  #lines$date <- as.POSIXct(lines$date,tz="UTC")
   ###  find the outer bounds of the storm
   lne <- lines |> filter(location!="track")
   ### if the raster is coming from a parrallel call, unwrap it first
   #if (class(r)[1]=="PackedSpatRaster") r=suppressWarnings(rast(unwrap(r)));messagefun='sf'
   ###  get the date stamps of the lines
-  dts <- unique(lne$date[!lne$location %in% c("track","track points")])
+  dts <- unique(centers$date)
   d1 <- unique(dts)[L]
   #d2 <- unique(dts)[which(unique(dts)==d1)+1]
   #dates <- centers$date[centers$date<=d2&centers$date>=d1] |> unique()
@@ -164,7 +164,6 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
     ###  the normal extents
   #  line|>filter(!location %in%c("ROCI","track","track points")),
   #  r, "kts",touches=T,fun="mean")
-
   rP <-  rasterize(bind_rows(line|>filter(!location %in%c("ROCI","track","track points")),
                              st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r_cr, "P",touches=T)
   ###  convert the xyz values to a dataframe for thin spline interpolation
