@@ -58,17 +58,18 @@ edl_netrc(username = "XXXX",password="XXXX")
 ##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):
 library(googledrive)
 drive_auth()
+```
 
-##  The system is now configured to access the data.
-##  To not have to re-download storm data again, store the raw precipitation files in a local repository (dpath).
-##  Otherwise they will be downloaded to the temporary directory.
-##  likewise, write the results to disk utilizing the 'todir' argument, especially when producing high resolution products
-##  the default when providing a 'todir' is to return the filenames, but we can explicitly request the rasters with "loadrasts=TRUE"
-##  we can also modify the time step (t_res) and the spatial resolution (s_res).
-##  In the introductory vignette, we did not specify the resolution, so the different native resolutions were returned
-##  Here, we reproject everything to the same resolution when we specify s_res
-##  We also request both 24 and 48 hour pre-storm precipitation
-##  finally, because we are processing all of the methods and using higher resolutions, we can elect a parallel setup using the cpus argument
+The system is now configured to access the data. To not have to re-download storm data again, 
+store the raw precipitation files in a local repository (dpath). Otherwise they will be downloaded to the temporary directory.
+Likewise, write the results to disk utilizing the 'todir' argument, especially when producing high resolution products.
+The default when providing a 'todir' is to return the filenames, but we can explicitly request the rasters with "loadrasts=TRUE".
+We can also modify the time step (t_res) and the spatial resolution (s_res).
+In the introductory vignette, we did not specify the resolution, so the different native resolutions were returned
+Here, we reproject everything to the same resolution when we specify 's_res'. We also request both 24 and 48 hour pre-storm precipitation.
+Finally, because we are processing all of the methods and using higher resolutions, we can elect a parallel setup using the cpus argument.
+
+```{r get_precip_false2,eval=FALSE}
 precip <- lapply(storms,get_precip,dpath="./data/Precipitation",todir="./products/Rains",sources="all",prestorm=c(24,48),t_res=30,s_res=10000,cpus=15)
 ##  Afterwards and with the files already saved to disk, we can load them using their folder names.
 ##  in this case, we have to explicitly set their names in the list for easier navigation
@@ -84,7 +85,7 @@ precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELE
 str(precip)
 ```
 
-We can see from the above the results are typical of Cyclones products, nested lists of raster stacks. The products are stored as storm or pre-storm files, for each precipitation source, and for each storm. Taking a look at only one of those shows the raster stack. In this case, there are 246 layers for Helene, one for each 30 minute interval (246/2/24 = 5.125 days). The layers are in the custom lcc projection and at the desired 10km spatial resolution. Sources show that the files were (or were not) loaded from specific files, and the time and units are also shown. 
+We can see from the above the results are typical of Cyclones products, nested lists of raster stacks. The products are stored as storm or pre-storm files, for each precipitation source, and for each storm. Taking a look at only one of those shows the raster stack. In this case, there are 246 layers for Helene, one for each 30 minute interval (246/2/24 = 5.125 days). The layers are in the custom lcc projection and at the desired 10km spatial resolution. Sources show that the images were (or were not) loaded from specific files, and the time and units are also shown. 
 
 ```{r show_precip2,message=FALSE,warning=FALSE}
 ###  showing one set of raster stacks
@@ -124,6 +125,8 @@ precip_par
 # devtools::load_all()
 # on.exit(sfStop())
 #precip_par <- sfLapply(storms,get_precip,dpath="I:/Precipitation",sources="ecmwf",prestorm=TRUE,t_res=30,s_res=10000)
+
+##  results arent the same...need to find a way to list them like they are returned by the app
 rapply(precip,wrap)
 ```
 
@@ -133,20 +136,24 @@ In the above output, note that the products are wrapped (packed) because the par
 ##  unwrap the packed raster products from a parallel call
 ##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
 
-##  results arent the same...need to find a way to list them like they are returned by the app
 precip <- rapply(precip_par, unwrap)
 ```
 
 With the precipitation products processed, we can examine the results. To aid in comparing sources and time periods, this is demonstrated via ggplot, which requires some manipulation of the raster images into data frames. But base plot can also easily be used to visualize the raster products. 
 
 ```{r get_precip_plot,message=FALSE,warning=FALSE,fig.width=9,fig.height=7,fig.cap="Fig 1. The results of get_precip() are individual rasters representing the rainfall for each time step in the requested frequency, in this case every 30 minutes. Notice the differences between the precipitation sources. GPM has been noted to overestimate extreme rainfall. Because we also requested prestorm precipitation, the area of interest is expanded to where the storm will be over the next 24 hours and 48 hours. In the case of Frances, most of the storm rainfall fell over the Bahamas, with little prestorm precipitation at that time. Fig 2 demonstrates the case of Helene, which had a significant predecessor rain event."}
+
+###  read in the files saved to disk
 precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
 
+###  convert to data frame, this time only for FRANCES
 r_df <- rapply(precip$FRANCES2004,function(r){
   as.data.frame(project(r[[time(r)==as.POSIXct("2004-09-04 01:00")]],"epsg:4326"),xy=TRUE)|>
     tidyr::pivot_longer(cols=3,names_to="layer")
   }, how="list")
 r_df <- unlist(r_df,recursive=FALSE)
+
+###  join all layers (storm and prestorm) to same df
 r_df <- bind_rows(
   ##  storm data
   bind_rows(r_df[grep("prestorm",names(r_df),invert=TRUE,value=TRUE)]),
@@ -154,9 +161,11 @@ r_df <- bind_rows(
   bind_rows(unlist(r_df[grep("prestorm",names(r_df),value=TRUE)],recursive=FALSE))
   )
 
+##  for display faceting, add in the method and time-period 
 r_df$method <- sapply(strsplit(r_df$layer,"_"),"[[",1)
 r_df$period <- sapply(strsplit(r_df$layer,"_"),"[[",2)
 
+##plot
 ggplot(data=r_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
    facet_grid(method~period)+

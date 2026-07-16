@@ -32,6 +32,8 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -272,10 +274,13 @@ $(document).ready(function () {
 
 
 <p>The following methods demonstrate some of the more detailed
-capabilities of the wind products from Cyclones. This includes: **
-Modeling wind extents for storms with incomplete data ** Building high
-resolution wind rasters at specific timesteps ** Compare rasters with
-hurricane hunter reconnaissance drop sonde data</p>
+capabilities of the wind products from Cyclones. This includes:</p>
+<ul>
+<li>Modeling wind extents for storms with incomplete data</li>
+<li>Building high resolution wind rasters at specific timesteps</li>
+<li>Compare rasters with hurricane hunter reconnaissance drop sonde
+data</li>
+</ul>
 <div id="get-storm-tabular-data" class="section level1">
 <h1>Get Storm Tabular Data</h1>
 <p>Use the ‘get_storms()’ function to gather the available time series,
@@ -292,6 +297,25 @@ allstorms &lt;- get_storms(&quot;./ibtracs.ALL.list.v04r01.csv&quot;)
 
 ##  separate the storms of interest for this vignette
 storms &lt;- allstorms[grep(&quot;CAMILLE_1969|SINLAKU_2026|MARIA_2017&quot;,names(allstorms))]</code></pre>
+<p>Because the native IBTrACS data includes input from multiple
+meteorological agencies across the globe, the get_storms() function will
+automatically consolidate values across these agencies. The United
+States (USA) contains the lowest number of missing values, so it is
+selected by default, with the World Meteorological Organization (WMO)
+selected as the secondary choice. If those values are missing but values
+from other agencies are available, they will be used instead.
+Alternatively, users can select another agency at their discretion. This
+is done via the ‘pref’ argument, ehich can be one of: USA, WMO, TOKYO,
+CMA, HKO, KMA, NEWDELHI, REUNION, BOM, NADI, WELLINGTON, DS824, TD9636,
+TD9635, NEUMANN, or MLC. See the <a
+href="https://www.ncei.noaa.gov/sites/default/files/2025-09/IBTrACS_v04r01_column_documentation.pdf">IBTrACS
+documentation</a> for more information.</p>
+<p>Further, because these agencies use different definitions for the
+maximum sustained wind, these values can also be manipulated to ensure
+consistency. This is done via the ‘msw_int’ argument, which can one of:
+‘10min’, ‘1min’, ‘2min’, or ‘3min’.</p>
+<pre class="r"><code>##  getting the Japanese values but converting to 1min sustained wind intervals
+allstorms_JPN1min &lt;- get_storms(&quot;./ibtracs.ALL.list.v04r01.csv&quot;,pref=&#39;TOKYO&#39;,msw_int=&#39;1min&#39;)</code></pre>
 </div>
 <div id="get-wind-products" class="section level1">
 <h1>Get Wind Products</h1>
@@ -302,16 +326,44 @@ rasters.</p>
 <p>If linear extents of wind speeds and cyclone regions (eye, radius of
 last closed isobar (ROCI)) are needed, or if the Thin Plate Spline (TPS)
 wind method is desired, wind extent models are built into a lookup table
-(The empirical TPS method is shown below to be more accurate than the
-theoretical models). These lookup tables should be based on as full or
-limited a set of storms as necessary for the objective. For generalized
-modeling, its best to use a full set of storms (ib_filt=“all” in the
-above get_storms() call).</p>
+(The empirical TPS method is shown below to sometimes be more accurate
+than the theoretical models). These lookup tables should be based on as
+full or limited a set of storms as necessary for the objective. For
+generalized modeling, its best to use a full set of storms
+(ib_filt=“all” in the above get_storms() call).</p>
 <pre class="r"><code>## build the models based on the entire storm dataset.  
 ## The models are built into lookup tables, 
 ## with a different model for every quadrant of the storm, 
 ## for every storm size and in every basin. 
 mods &lt;- build_models(allstorms)</code></pre>
+<p>The models returned by ‘build_models()’ are nested inside a data
+frame. While this nesting makes passing and using the models more fluid,
+it complicates saving them to disk or viewing them in the browser. Thus,
+users should be careful when attempting to do so. Models are always
+grouped by oceanic basin and size (saffir-simpson scale), as well as by
+quadrant when applicable. There are 5 sets of models. The ‘distmods’
+describe wind extent as a function of wind speed. The ‘emod’ describes
+the eye radius as a function of the radius of the maximum wind speed.
+The ‘roci’ mods describe the radius of the last closed isobar (storm’s
+maximum extent) as a function of the largest wind extent. The ‘poci’
+mods describe the pressure difference between the inner low and the
+outer high as a function of the maximum wind speed. Also included is a
+table of the mean minimum pressure for each size storm in each
+basin.</p>
+<div class="figure">
+<img src="Winds_files/figure-html/plot_distmods-1.png" alt="Fig 1. The results of build_models() are nested data frames containing the original storm data, along with models describing important wind and pressure extents. Predictions from these models are shown here with small random samples of the data, and are used in the make_extents() function to estimate missing extents, such as the radius of maximum wind, the eyewall radius, and the radius of the last closed isobar. Most models are only computed for category 0 and above and although the Northern Indian and Southern Atlantic are included in the models, they are not shown due to limited plotting space." width="864" />
+<p class="caption">
+Fig 1. The results of build_models() are nested data frames containing
+the original storm data, along with models describing important wind and
+pressure extents. Predictions from these models are shown here with
+small random samples of the data, and are used in the make_extents()
+function to estimate missing extents, such as the radius of maximum
+wind, the eyewall radius, and the radius of the last closed isobar. Most
+models are only computed for category 0 and above and although the
+Northern Indian and Southern Atlantic are included in the models, they
+are not shown due to limited plotting space.
+</p>
+</div>
 </div>
 <div id="make-wind-extent-spatial-features" class="section level2">
 <h2>Make Wind Extent Spatial Features</h2>
@@ -365,15 +417,768 @@ polygons &lt;- lapply(windextents,function(x) x$swaths)
 ##  the individual storms are projected in their own crs, centered on the storm.
 ##  To get them all in the same CRS, if desired
 linestrings &lt;- lapply(linestrings,st_transform,crs=4326)</code></pre>
+<p>The spatial features returned by ‘make_extents()’ contain information
+pertaining to the track of the center of the storm, as well as various
+wind or pressure extents, all at specific time steps. Each feature also
+contains information pertaining to the storm as a whole, such as the
+maximum wind, the ROCI, etc.</p>
+<p>Track data can be either native or interpolated, depending on the
+hour. Native time steps are typically given for every third hour of the
+day, with some exceptions for landfall events. All other hours are
+interpolated. For extent, there are two data points that can be either
+native, interpolated, or modeled. Those two data points are the location
+of the extent, and the value of that extent. Location can only be either
+native or interpolated, just as the track data. But the value of the
+extent can be native, interpolated, or modeled. These are indicated in
+the source column in the order of location, value.</p>
+<p>The below samples from ‘make_extents()’ come from unmodeled (top) and
+modeled (bottom) calls. Notice the missing data in the unmodeled table
+and the difference in the ‘source’ column:</p>
+<pre><code>## Warning: Non-MODELED wind extents</code></pre>
+<div
+style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class="table table-striped table-condensed" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+kts
+</th>
+<th style="text-align:left;">
+basin
+</th>
+<th style="text-align:left;">
+location
+</th>
+<th style="text-align:left;">
+source
+</th>
+<th style="text-align:left;">
+ID
+</th>
+<th style="text-align:left;">
+name
+</th>
+<th style="text-align:left;">
+date
+</th>
+<th style="text-align:right;">
+dist.m
+</th>
+<th style="text-align:right;">
+rmw.m
+</th>
+<th style="text-align:right;">
+maxwind.ms
+</th>
+<th style="text-align:right;">
+minpress.mb
+</th>
+<th style="text-align:right;">
+maxpress.mb
+</th>
+<th style="text-align:right;">
+roci.m
+</th>
+<th style="text-align:right;">
+centerX
+</th>
+<th style="text-align:right;">
+centerY
+</th>
+<th style="text-align:left;">
+geometry
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+track
+</td>
+<td style="text-align:left;">
+interpolated
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-17 02:30:00
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+76.1312
+</td>
+<td style="text-align:right;">
+906.9444
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-87.44986
+</td>
+<td style="text-align:right;">
+25.53338
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-648154.5 -4773…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+track points
+</td>
+<td style="text-align:left;">
+interpolated
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-17 18:30:00
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+69.9584
+</td>
+<td style="text-align:right;">
+918.0000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-88.71659
+</td>
+<td style="text-align:right;">
+28.30001
+</td>
+<td style="text-align:left;white-space: nowrap;">
+POINT (-755990 -163382.4)
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NE
+</td>
+<td style="text-align:left;">
+native
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-18 04:00:00
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+77.1600
+</td>
+<td style="text-align:right;">
+900.0000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-89.40000
+</td>
+<td style="text-align:right;">
+30.30000
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-806091.1 72050…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NW
+</td>
+<td style="text-align:left;">
+native
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-18 04:00:00
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+77.1600
+</td>
+<td style="text-align:right;">
+900.0000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-89.40000
+</td>
+<td style="text-align:right;">
+30.30000
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-815990.6 63474…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+SE
+</td>
+<td style="text-align:left;">
+native
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-18 04:00:00
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+77.1600
+</td>
+<td style="text-align:right;">
+900.0000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-89.40000
+</td>
+<td style="text-align:right;">
+30.30000
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-797557.7 62120…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+150
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+SW
+</td>
+<td style="text-align:left;">
+native
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-18 04:00:00
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+9260
+</td>
+<td style="text-align:right;">
+77.1600
+</td>
+<td style="text-align:right;">
+900.0000
+</td>
+<td style="text-align:right;">
+NaN
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-89.40000
+</td>
+<td style="text-align:right;">
+30.30000
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-807456.3 53543…
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<pre><code>## Warning: MODELED wind extents</code></pre>
+<div
+style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class="table table-striped table-condensed" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+kts
+</th>
+<th style="text-align:left;">
+location
+</th>
+<th style="text-align:right;">
+dist.m
+</th>
+<th style="text-align:left;">
+source
+</th>
+<th style="text-align:left;">
+ID
+</th>
+<th style="text-align:left;">
+basin
+</th>
+<th style="text-align:left;">
+name
+</th>
+<th style="text-align:left;">
+date
+</th>
+<th style="text-align:right;">
+maxwind.ms
+</th>
+<th style="text-align:right;">
+rmw.m
+</th>
+<th style="text-align:right;">
+minpress.mb
+</th>
+<th style="text-align:right;">
+maxpress.mb
+</th>
+<th style="text-align:right;">
+roci.m
+</th>
+<th style="text-align:right;">
+centerX
+</th>
+<th style="text-align:right;">
+centerY
+</th>
+<th style="text-align:left;">
+geometry
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+ROCI
+</td>
+<td style="text-align:right;">
+299468.4
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-19 20:00:00
+</td>
+<td style="text-align:right;">
+12.8600
+</td>
+<td style="text-align:right;">
+272244
+</td>
+<td style="text-align:right;">
+964.5161
+</td>
+<td style="text-align:right;">
+968.5960
+</td>
+<td style="text-align:right;">
+299468.4
+</td>
+<td style="text-align:right;">
+-85.40027
+</td>
+<td style="text-align:right;">
+37.66743
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-688627.2 86908…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:left;">
+NE
+</td>
+<td style="text-align:right;">
+62968.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-22 01:00:00
+</td>
+<td style="text-align:right;">
+27.2632
+</td>
+<td style="text-align:right;">
+57412
+</td>
+<td style="text-align:right;">
+1000.5735
+</td>
+<td style="text-align:right;">
+1017.0664
+</td>
+<td style="text-align:right;">
+150752.8
+</td>
+<td style="text-align:right;">
+-61.23714
+</td>
+<td style="text-align:right;">
+39.43608
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (1677534 1264748…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+34
+</td>
+<td style="text-align:left;">
+NW
+</td>
+<td style="text-align:right;">
+220388.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+native &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-15 12:00:00
+</td>
+<td style="text-align:right;">
+46.2960
+</td>
+<td style="text-align:right;">
+38892
+</td>
+<td style="text-align:right;">
+969.0000
+</td>
+<td style="text-align:right;">
+1015.2839
+</td>
+<td style="text-align:right;">
+366696.0
+</td>
+<td style="text-align:right;">
+-83.80000
+</td>
+<td style="text-align:right;">
+20.60000
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-513722.5 -1031…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+34
+</td>
+<td style="text-align:left;">
+SE
+</td>
+<td style="text-align:right;">
+248168.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-16 07:00:00
+</td>
+<td style="text-align:right;">
+56.0696
+</td>
+<td style="text-align:right;">
+31484
+</td>
+<td style="text-align:right;">
+934.5833
+</td>
+<td style="text-align:right;">
+994.8141
+</td>
+<td style="text-align:right;">
+374104.0
+</td>
+<td style="text-align:right;">
+-85.33307
+</td>
+<td style="text-align:right;">
+23.23345
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-195641.7 -7498…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+34
+</td>
+<td style="text-align:left;">
+SW
+</td>
+<td style="text-align:right;">
+114824.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-21 02:00:00
+</td>
+<td style="text-align:right;">
+26.7488
+</td>
+<td style="text-align:right;">
+57412
+</td>
+<td style="text-align:right;">
+1000.5735
+</td>
+<td style="text-align:right;">
+1016.4647
+</td>
+<td style="text-align:right;">
+150752.8
+</td>
+<td style="text-align:right;">
+-72.73296
+</td>
+<td style="text-align:right;">
+36.63490
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (748876.2 648848…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:left;">
+track
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-15 16:30:00
+</td>
+<td style="text-align:right;">
+48.3536
+</td>
+<td style="text-align:right;">
+37040
+</td>
+<td style="text-align:right;">
+967.0000
+</td>
+<td style="text-align:right;">
+1015.9181
+</td>
+<td style="text-align:right;">
+366696.0
+</td>
+<td style="text-align:right;">
+-84.04993
+</td>
+<td style="text-align:right;">
+21.10001
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-317742.8 -9811…
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <p>These spatial features can also be good for certain storm
 visualizations in which a fully gridded raster is unnecessary or
-otherwise unfit for the display objectives. In the below figure, the top
-panel shows the various extents for thr native timesteps only of our two
-storms. The lower figure better demonstrates the difference between the
-native and modeled data, with the older Camille generally lacking any
-native data when compared to the more recent Sinlaku. Still, Sinlaku
+otherwise unfit for the display objectives. In the below figures, the
+top panel shows the various extents for the native timesteps only of our
+two storms. Figure 2 better demonstrates the difference between native,
+interpolated, and modeled data, with the older Camille generally lacking
+any native data when compared to the more recent Sinlaku. Still, Sinlaku
 native data is missing some of the lower wind extents that would
 normally be included in a modern North Atlantic storm.</p>
+<pre class="r"><code>###  an example of plotting the windextents via ggplot
+countries &lt;- rnaturalearth::ne_countries(scale=&quot;Medium&quot;,continent = c(&quot;north america&quot;,&quot;south america&quot;,&quot;Europe&quot;,&quot;Africa&quot;,&quot;Oceania&quot;))
+
+ggplot(windextents$CAMILLE_1969_NA_1969226N18280|&gt;filter(grepl(&quot;native&quot;,source)))+
+geom_sf(data=countries|&gt;st_transform(st_crs(windextents[[2]])))+
+geom_sf(aes(col=kts))+
+geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|&gt;filter(!grepl(&quot;interpolated&quot;,source),location==&quot;track points&quot;),aes(col=maxwind.ms/0.514))+
+scale_color_gradientn(
+    colours = c(&quot;black&quot;,&quot;lightgreen&quot;,&quot;#44AA99&quot;,&quot;#DDCC77&quot;,&quot;#CC6677&quot;,&quot;#882255&quot;),
+    values = scales::rescale(c(64, 83, 96, 113,137)), 
+    limits = c(0, 150))+
+ggtitle(&quot;Hurricane Camille - 1969&quot;)+
+theme_bw()+
+coord_sf(crs = sf::st_crs(4326))+
+  scale_x_continuous(limits=c(-98,-70),n.breaks=4)+
+ylim(15,45)</code></pre>
 <div class="figure">
 <img src="Winds_files/figure-html/plot-extents-1.png" alt="Fig 1. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. Here, only the native timesteps are shown, with a mix of native and modeled extents." width="864" />
 <p class="caption">
@@ -383,18 +1188,19 @@ timesteps are shown, with a mix of native and modeled extents.
 </p>
 </div>
 <div class="figure">
-<img src="Winds_files/figure-html/plot-extents2-1.png" alt="Fig 2. Another look at the results of make_extents(), this time looking at the different sources of the data and only for hurricane force winds. If t_res was utilized, interpolated features are also created to fill in the missing times. Also, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps." width="672" />
+<img src="Winds_files/figure-html/plot-extents2-1.png" alt="Fig 2. Another look at the results of make_extents(), this time looking at the different sources of the data and only for hurricane force winds. Data sources are given in order of their reference to the location and the value of the feature. If t_res was utilized, interpolated features are also created to fill in the missing times. Also, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps." width="864" />
 <p class="caption">
 Fig 2. Another look at the results of make_extents(), this time looking
 at the different sources of the data and only for hurricane force winds.
-If t_res was utilized, interpolated features are also created to fill in
-the missing times. Also, the ‘mods’ argument can be used to model wind
-and pressure values that are missing, which is usually the case for
-older storms or sometimes for storms outside of USA jurisdiction. In
-this case, an older storm (Camille) has very little native information.
-Because we used modeling to fill in the missing extents, there are a mix
-of native and modeled features, as well as interpolated features between
-the native time steps.
+Data sources are given in order of their reference to the location and
+the value of the feature. If t_res was utilized, interpolated features
+are also created to fill in the missing times. Also, the ‘mods’ argument
+can be used to model wind and pressure values that are missing, which is
+usually the case for older storms or sometimes for storms outside of USA
+jurisdiction. In this case, an older storm (Camille) has very little
+native information. Because we used modeling to fill in the missing
+extents, there are a mix of native and modeled features, as well as
+interpolated features between the native time steps.
 </p>
 </div>
 </div>
@@ -469,9 +1275,9 @@ sfStop()
 ## unwrap
 winds &lt;- lapply(winds, function(x) lapply(x,unwrap))</code></pre>
 <div class="figure">
-<img src="Winds_files/figure-html/plotwinds1-1.png" alt="Fig 2. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results." width="672" />
+<img src="Winds_files/figure-html/plotwinds1-1.png" alt="Fig 3. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results." width="864" />
 <p class="caption">
-Fig 2. The results of get_wind() are rasters for each timestep at the
+Fig 3. The results of get_wind() are rasters for each timestep at the
 desired spatial resolution (here at 5000km). This is showing windspeed,
 but wind direction and power disspipation are also provided. Because we
 modeled the wind extents before computing the wind rasters, all methods
@@ -491,28 +1297,35 @@ which require a radius of maximum wind and an outer pressure estimate at
 the least. For Sinlaku, modelling helps constrain the maximum wind
 field.</p>
 <div class="figure">
-<img src="Winds_files/figure-html/plotwinds2-1.png" alt="Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native wind extents (un-modeled) as well as those from windextents that were supplemented with modeling. The un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area. Non-TPS methods that weren't able to compute for Camille, did so with modeled extents." width="672" />
+<img src="Winds_files/figure-html/plotwinds2-1.png" alt="Fig 4. Comparing the 'modeled' and 'unmodeled' products of get_wind(). Un-modeled use only the native wind extents, while modeled were supplemented with the models produced by 'build_models()'. Older storms, such as Camille (1969) wont compute the non-TPS methods unless supplemented with non-native data. These methods that weren't able to compute for Camille, did so with modeled extents. Notice also that utilizing the extents in TPS typically results in a larger overall footprint, a reflexion of the use of the ROCI (a pressure extent), whereas the other methods only model theoretical wind extents." width="864" />
 <p class="caption">
-Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native
-wind extents (un-modeled) as well as those from windextents that were
-supplemented with modeling. The un-modeled TPS extents do not properly
-bound the eye, resulting in an inflated maximum wind area. Non-TPS
-methods that weren’t able to compute for Camille, did so with modeled
-extents.
+Fig 4. Comparing the ‘modeled’ and ‘unmodeled’ products of get_wind().
+Un-modeled use only the native wind extents, while modeled were
+supplemented with the models produced by ‘build_models()’. Older storms,
+such as Camille (1969) wont compute the non-TPS methods unless
+supplemented with non-native data. These methods that weren’t able to
+compute for Camille, did so with modeled extents. Notice also that
+utilizing the extents in TPS typically results in a larger overall
+footprint, a reflexion of the use of the ROCI (a pressure extent),
+whereas the other methods only model theoretical wind extents.
 </p>
 </div>
 Another look at one time step with the published wind extents overlayed
 from the National Hurricane Center.
 <div class="figure">
-<img src="Winds_files/figure-html/plotwinds3-1.png" alt="Fig 4. Rasters from get_wind() along with the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones, which can be seen here as the non-tps methods drastically underestimate storm size compared to TPS." width="672" />
+<img src="Winds_files/figure-html/plotwinds3-1.png" alt="Fig 5. Another comparison of the rasters from get_wind() for Super Typhoon Sinlaku along with a VIIRS derived satellite image and the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods and the visual imagery. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones and this can be seen here as the non-tps methods drastically underestimate storm size compared to the satellite imagery and the modeled extents. Notice also however, for Sinlaku, how the un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area." width="864" />
 <p class="caption">
-Fig 4. Rasters from get_wind() along with the wind extents from
-make_extents(). The wind extents are directly used to calculate the TPS
-method, but they also offer an interesting comparison with the other
-methods. The non-TPS methods were primarily developed for North Atlantic
-cyclones, which are generally half the size of Pacific cyclones, which
-can be seen here as the non-tps methods drastically underestimate storm
-size compared to TPS.
+Fig 5. Another comparison of the rasters from get_wind() for Super
+Typhoon Sinlaku along with a VIIRS derived satellite image and the wind
+extents from make_extents(). The wind extents are directly used to
+calculate the TPS method, but they also offer an interesting comparison
+with the other methods and the visual imagery. The non-TPS methods were
+primarily developed for North Atlantic cyclones, which are generally
+half the size of Pacific cyclones and this can be seen here as the
+non-tps methods drastically underestimate storm size compared to the
+satellite imagery and the modeled extents. Notice also however, for
+Sinlaku, how the un-modeled TPS extents do not properly bound the eye,
+resulting in an inflated maximum wind area.
 </p>
 </div>
 </div>
@@ -538,19 +1351,20 @@ with the sonde data. Further, although drop sondes collect information
 along the entire vertical profile of the storm, only surface winds
 (&lt;30 m in elevation) are compared here, as those are most comparable
 to the raster layers.</p>
-<p>The compare_winds function will output a list of spatial feature data
-frames in a geographic coordinate system, with each entry corresponding
-to one set of sonde measurements and the corresponding extracted raster
-value. It can be used to assess and examine the accuracy of the wind
-products as they related to direct measurements from the sondes.</p>
+<p>The compare_winds function will also output a list of spatial feature
+data frames in a geographic coordinate system, with each entry
+corresponding to one set of sonde measurements and the corresponding
+extracted raster value as well as its source file. It can be used to
+assess and examine the accuracy of the wind products relative to to
+direct measurements from the sondes.</p>
 <pre class="r"><code>##  The wind rasters (as filenames or loaded into memory) can be compared 
 ##  against the hurricane hunter drop sonde data
 ##  indicating the ddir will save and load the sonde data from that directory
 comps  &lt;- compare_winds(rasts=windsSinlaku,ddir=&quot;./Drop Sondes/&quot;)
 comps_r &lt;- do.call(rbind,comps)
-###  get the value closest to the ground for each sonde in each storm
+###  get the value closest to the 30m &quot;surface&quot; elevation ceiling for each sonde
 comps_r_filt &lt;- comps_r |&gt; group_by(sonde, storm, method,var) |&gt;
-  filter(ZW.m==min(ZW.m,na.rm=TRUE)) |&gt;
+  filter(ZW.m==max(ZW.m,na.rm=TRUE)) |&gt;
   ungroup()</code></pre>
 <div class="figure">
 <img src="Winds_files/figure-html/compare_winds-1.png" alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="864" />
@@ -565,29 +1379,48 @@ there are some major discrepencies, mostly from sondes that are near or
 on the eye wall where wind speeds change rapidy across the profile.
 </p>
 </div>
-<p>The above graphic represents the drop sonde comparisons for the
-raster products of about 40 storms since 2016, each at 5 km spatial
-resolution and 10 min temporal resolution. Although each storm will be
-different, overall the TPS method outperforms the other models in terms
-of the root mean square error (RMSE). Most of the error for all methods
-stems from sonde locations in the eye-wall, where wind dynamics can
-change drastically over relatively small distances. Future comparison
-will also incoporate <a
+<p>The above graphic represents the drop sonde wind speed comparisons
+for the raster products of about 40 storms since 2016, each at 5 km
+spatial resolution and 10 min temporal resolution. Although each storm
+will be different, overall the TPS method outperforms the other models
+in terms of the root mean square error (RMSE) and the Root Median Square
+Error, although the difference is modest. Most of the error for all
+methods stems from sonde locations in the eye-wall, where wind dynamics
+can change drastically over relatively small distances. Future
+comparison will also incoporate <a
 href="https://www.star.nesdis.noaa.gov/socd/mecb/sar/sarwinds_tropical.php">SAR
 wind measurements</a>.</p>
+<p>Below are the same comparisons for wind speed. Wind speed may be an
+important factor for some, especially when considering wind flow over
+topography and the differential impacts observed on landscapes
+corresponding to windward, leeward, peaks and valleys. Thus, accuracy is
+important. The Holland and Willoughby methods employ the same
+calculation, as can be seen by their identical results. Boose and TPS
+apply similar methods akin to a spiral tangent, however Boose makes
+changes depending if the storm is over land or water. In any case, the
+comparisons are fairly similar and its not clear if there is an
+objective best.</p>
 <div class="figure">
-<img src="Winds_files/figure-html/compare_winds2-1.png" alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="864" />
+<img src="Winds_files/figure-html/compare_winds2-1.png" alt="Fig 6. Comparisons with drop sonde data, similar to the presented in Fig. 5, but this time for wind direction.  In this case there is no clear best option. Future work may examine the reasons for the observed deviations and attempt to employ a different method." width="864" />
 <p class="caption">
-Fig 5. get_wind() raster products compared with drop sonde data from
-hurricane hunter aircraft reconnaissance missions. Sondes are dropped
-from high elevation and take continuous measurements as they fall to the
-ground. The below data represent measurements that were taken within 5
-minutes of the raster times and at the maximum height below 30 meters.
-Generally, raster images accurately reflect the dropsonde data, although
-there are some major discrepencies, mostly from sondes that are near or
-on the eye wall where wind speeds change rapidy across the profile.
+Fig 6. Comparisons with drop sonde data, similar to the presented in
+Fig. 5, but this time for wind direction. In this case there is no clear
+best option. Future work may examine the reasons for the observed
+deviations and attempt to employ a different method.
 </p>
 </div>
+</div>
+<div id="aggregate-winds" class="section level2">
+<h2>Aggregate Winds</h2>
+<p>In many research cases, individual timesteps are not explicitly
+required, and instead only an aggregate representation of the entire
+storm is needed. Examples include the maximum sustained wind at any
+given point, or the duration of hurricane force winds. The below
+demonstrates this and it is important to point out that although the
+individual timesteps may not be desired, they are still important for
+the aggregate calculation. As such, their temporal resolution matters.
+Less frequent time steps may result in aggregate data that appears less
+smooth than that computed with higher frequency data.</p>
 </div>
 </div>
 

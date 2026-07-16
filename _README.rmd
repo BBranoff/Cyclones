@@ -29,7 +29,7 @@ remotes::install_github("BBranoff/Cyclones@development")
   * Choose among Boose, Holland, Willoughby, or Thin Plate Spline methods
   * Model missing extents from similar storms
   * Calculate maximum sustained winds, wind direction, and power
-  * Compare calculated winds against Hurricane Hunter drop sondes
+  * Compare calculated winds against hurricane hunter drop sondes
   
 * For rainfall:
   * Choose among ERA5, MSWEP, or GPM sources

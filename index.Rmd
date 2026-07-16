@@ -1,6 +1,10 @@
 ---
 title: "Introduction"
 ---
+These are the workflow vignettes for the Cyclones package. [Full repositry here.](https://github.com/BBranoff/Cyclones) 
+These workflows demonstrate the primary functions of the package, with context as 
+to the reasoning behind the methods and the final products.
+
 
 # Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
@@ -91,7 +95,7 @@ windextents <- lapply(storms,make_extents,t_res=60)
 
 These spatial features can also be good for certain storm visualizations in which a fully gridded raster is not necessary.
 
-```{r plot-extents, echo=FALSE, message=FALSE,warning=FALSE,fig.width=7,fig.height=3,fig.cap = "Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in 'make_extents()', there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map." }
+```{r plot-extents, echo=FALSE, message=FALSE,warning=FALSE,fig.width=9,fig.height=3.5,fig.cap = "Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in 'make_extents()', there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map. Examples of modeled extents are shown in the 'Winds' vignette." }
 library(ggplot2)
 library(patchwork)
 
@@ -109,14 +113,15 @@ theme_bw()+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
 scale_x_continuous(limits=c(-95,-60),n.breaks = 4)+
 ylim(15,45)
+
 Sin <- ggplot(windextents$SINLAKU_2026_WP_2026099N09152|>filter(!grepl("interpolated",source)))+
 geom_sf(data=countries|>st_transform(st_crs(windextents[[2]])))+
 geom_sf(aes(col=kts))+
-geom_sf(data=windextents$SINLAKU_2026_WP_2026099N09152|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms))+
+geom_sf(data=windextents$SINLAKU_2026_WP_2026099N09152|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms/0.514))+
 scale_color_gradientn(
     colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
-    values = scales::rescale(c(64*0.514, 83*0.514, 96*0.514, 113*0.514,137*0.514)), # breakpoints in data space
-    limits = c(0, 80))+
+    values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
+    limits = c(0, 150))+
 ggtitle("Typhoon Sinlaku - 2026")+
 theme_bw()+
 coord_sf(crs = sf::st_crs(4326))+
@@ -126,18 +131,18 @@ print(Cam+Sin)
 ```
 
 
-```{r plot-extents2, echo=FALSE, fig.width=7,fig.height=7,fig.cap = "Fig 1B. The results of make_extents() zoomedin, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." }
+```{r plot-extents2, echo=FALSE, fig.width=7,fig.height=8,fig.align='left',fig.cap = "Fig 1B. The results of make_extents() zoomedin, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." }
 Cam <- ggplot(windextents$CAMILLE_1969_NA_1969226N18280|>
                  mutate(source=factor(source,levels=c("native","native & modeled","interpolated","interpolated & modeled"))))+
 geom_sf(data=countries|>st_transform(st_crs(windextents[[1]])))+
-geom_sf(aes(col=maxwind.ms,fill=kts,lty=source))+
+geom_sf(aes(col=maxwind.ms,lty=source))+
 scale_linetype_manual(values=c(1,2))+
 scale_color_gradientn(
     colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
     values = scales::rescale(c(64*0.514, 83*0.514, 96*0.514, 113*0.514,137*0.514)), # breakpoints in data space
     limits = c(0, 80))+
 ggtitle("Hurricane Camille - 1969, Cat. 1+")+
-theme_bw()+theme(legend.position="none")+
+theme_bw()+ theme(legend.position="bottom")+
 coord_sf(crs = sf::st_crs(4326))+
 xlim(-91,-87)+
 ylim(29,31)+
@@ -156,7 +161,7 @@ scale_color_gradientn(
     limits = c(0, 80))+
 ggtitle("Typhoon Sinlaku, 2026 - Cat. 1+")+
 theme_bw()+
-  theme(legend.position="top")+
+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
   scale_x_continuous(limits=c(143.5,147),n.breaks=4)+
 ylim(13,17)+
@@ -182,61 +187,61 @@ winds_Sinlaku <- rast(winds_Sinlaku)
 
 ```
 
-```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=10,fig.cap="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'winds' vignette."}
+```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=9,fig.height=11,fig.align='left',fig.cap="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette."}
 library(terra)
 library(sf)
-winds_Camille <- get_wind("CAMILLE1969_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/")[[1]]
+winds_Camille <- get_wind("CAMILLE1969_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/",loadrasts = TRUE)[[1]]
 Camdate = c("196908171100","196908180400","196908181200")
 windsCam_msw <- winds_Camille[[grep("msw",names(winds_Camille))]]
 windsCam_msw <- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format="%Y%m%d%H%M",tz="UTC")]]
-windsCammsw_df <- as.data.frame(windsCam_msw,xy=TRUE)
+windsCammsw_df <- as.data.frame(project(windsCam_msw,"epsg:4326"),xy=TRUE)
 names(windsCammsw_df)[3:5] <- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep="_")
 windsCammsw_df <- windsCammsw_df |>
-  tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("name","date","method","unit","time"))
+  tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","time"))|>
+  mutate(layer=paste0("Camille\n",method))
 gg1 <- ggplot(data=windsCammsw_df) +
   geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~time)+
-  scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)")+
-  coord_equal() +
-  coord_sf(crs = 4326, datum = 4326)+
+  facet_grid(layer~time)+
+  scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
+                       breaks=c(0,10,20,30,40,50,60,70))+
   theme_bw()+
-  geom_sf(data=st_transform(rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),crs(windsCam_msw)),fill=NA,col="grey")+
-  ggtitle("Hurricane Camille Wind Field Method Comparisons")+
-  scale_x_continuous(limits=c(-1388073,-383073),n.breaks=4)+
-  ylim(-602360,546405)+
-  theme(axis.title = element_blank(),panel.grid=element_blank())
+  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="black")+
+  ggtitle("Wind Method Comparisons")+
+  scale_x_continuous(limits=c(-92.5,-85),breaks=c(-92,-88,-84))+
+  ylim(24,35)+
+  theme(axis.title = element_blank(),panel.grid=element_blank())+
+  theme(legend.position = "none")
 
-winds_Sinlaku <- get_wind("SINLAKU2026_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/")
+winds_Sinlaku <- get_wind("SINLAKU2026_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/",loadrasts=TRUE)
 Sindate = c("202604141000","202604141600","202604150000")
 windsSinmsw_df  <- lapply(winds_Sinlaku, function(x){
   x <- x[[grep("msw",names(x))]]
   x <- x[[time(x) %in% as.POSIXct(Sindate,format="%Y%m%d%H%M",tz="UTC")]]
-  df <- as.data.frame(x,xy=TRUE)
+  df <- as.data.frame(project(x,"epsg:4326"),xy=TRUE)
   names(df)[3:5] <- paste(names(df)[3:5],rep(unique(time(x))),sep="_")
   df |>
   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","time"))
 } )
-windsSinmsw_df <- do.call(rbind,windsSinmsw_df)
+windsSinmsw_df <- do.call(rbind,windsSinmsw_df)|>
+   mutate(layer=paste0("Sinlaku\n",method))
+#winds_df <- bind_rows(windsSinmsw_df,windsCammsw_df)
 gg2 <-ggplot(data=windsSinmsw_df) +
   geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~time)+
+  facet_grid(layer~time)+
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
-                       breaks=c(0,20,40,60))+
-  coord_sf(crs ="+proj=robin +lon_0=180")+
+                       breaks=c(0,10,20,30,40,50,60,70))+
   theme_bw()+
-  #geom_sf(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(winds_Sinlaku)),fill=NA,col="grey")+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(winds_Sinlaku)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
-  ggtitle("Typhoon Sinlaku Wind Field Method Comparisons")+
-  xlim(-1200000,400000)+ylim(-7e5,6e5)+
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+
+  #ggtitle("Typhoon Sinlaku")+
+  scale_x_continuous(limits=c(138,152.5),breaks=c(140,145,150))+ylim(8,22)+
   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position = "bottom")
-print((gg1/gg2)+plot_layout(heights = c(1, 3)))
+print((gg1/gg2)+plot_layout(heights = c(1,2)))
 ```
 
 
 It may also be desired to obtain an aggregate summary of a storm, rather than or in addition to individual time steps.This can be achieved via the terra package's 'app' functionality. In this case, we simply take the maximum to determine the maximum sustained wind at any given point during the duration of the storm, or the sum to get the total power dissipation at any given point. 
 
-```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=3,fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
+```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=7,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
 
 ### take only the msw (maximum sustained winds) layers 
 Cam_msw <- app(winds_Camille[[grepl("msw",names(winds_Camille))]],fun="max",na.rm=TRUE)
@@ -296,7 +301,7 @@ precip_Sinlaku <- list(precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026
 ##  plotting random times in base plot
 plot(precip_Camille[[100:102]])
 ##  ggplot gives more funcitonality
-PrecipsCamille_df <- as.data.frame(precip_Camille[[100:102]],xy=TRUE)
+PrecipsCamille_df <- as.data.frame(project(precip_Camille[[100:102]],'epsg:4326'),xy=TRUE)
 names(PrecipsCamille_df)[-c(1,2)] <- paste(names(PrecipsCamille_df)[-c(1,2)],time(precip_Camille[[100:102]]),sep="_")
 PrecipsCamille_df <-PrecipsCamille_df |>
    tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time"))
@@ -315,18 +320,18 @@ ggplot(data=PrecipsCamille_df) +
 
 ###  same code for Sinlaku not shown
 ```
-```{r plot_precip,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=5,fig.cap="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998."}
+```{r plot_precip,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=9,fig.cap="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998."}
 precip <- lapply(c("CAMILLE1969_25000_60_PRECIP","SINLAKU2026_25000_60_PRECIP","SINLAKU2026_10000_60_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip/v2",loadrasts=TRUE)
 precip_Camille <- precip[[1]]$ecmwf$storm#precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
 precip_Sinlaku <- list(precip[[2]]$ecmwf$storm,#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
                        precip[[3]]$mswep$storm)#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
-PrecipsCamille_df <- as.data.frame(precip_Camille[[100:102]],xy=TRUE)
+PrecipsCamille_df <- as.data.frame(project(precip_Camille[[100:102]],'epsg:4326'),xy=TRUE)
 names(PrecipsCamille_df)[-c(1,2)] <- paste(names(PrecipsCamille_df)[-c(1,2)],time(precip_Camille[[100:102]]),sep="_")
 PrecipsCamille_df <-PrecipsCamille_df |>
    tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time"))
-PrecipsSinlaku_df1 <- as.data.frame(precip_Sinlaku[[1]][[time(precip_Sinlaku[[1]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],xy=TRUE)
+PrecipsSinlaku_df1 <- as.data.frame(project(precip_Sinlaku[[1]][[time(precip_Sinlaku[[1]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],'epsg:4326'),xy=TRUE)
 names(PrecipsSinlaku_df1)[-c(1,2)] <- paste(names(PrecipsSinlaku_df1)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
-PrecipsSinlaku_df2 <- as.data.frame(precip_Sinlaku[[2]][[time(precip_Sinlaku[[2]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],xy=TRUE)
+PrecipsSinlaku_df2 <- as.data.frame(project(precip_Sinlaku[[2]][[time(precip_Sinlaku[[2]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],'epsg:4326'),xy=TRUE)
 names(PrecipsSinlaku_df2)[-c(1,2)] <- paste(names(PrecipsSinlaku_df2)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
 PrecipsSinlaku_df <-bind_rows(PrecipsSinlaku_df1 |>
    tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")),
@@ -336,27 +341,33 @@ Cam <- ggplot(data=PrecipsCamille_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(method~time)+
    scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)")+
-   coord_sf(crs ="+proj=robin +lon_0=180")+
    theme_bw()+
-   geom_sf(data=st_transform(rnaturalearth::ne_countries(),crs(precip_Camille)),fill=NA,col="black")+
-   geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(precip_Camille)),
-                aes(label = admin), size = 3, check_overlap = TRUE) +
+   geom_sf(data=rnaturalearth::ne_countries(country = "united states of america",scale=10),fill=NA,col="black")+
    ggtitle("Hurricane Camille, Precipitation")+
-   xlim(-1400000,100000)+ylim(-7e5,6e5)+
-   theme(axis.title = element_blank(),panel.grid=element_blank())
+   scale_x_continuous(limits=c(-94.5,-84),breaks=c(-92,-88,-84))+
+   ylim(24,35)+
+   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
 Sin <- ggplot(data=PrecipsSinlaku_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~time)+
-   scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)")+
-   coord_sf(crs ="+proj=robin +lon_0=180")+
+   facet_grid(method~time)+
+   scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)",
+                        breaks=c(0,10,20,30,40))+
    theme_bw()+
-   #geom_sf(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(precip_Sinlaku[[1]])),fill=NA)+
-   #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(precip_Sinlaku[[1]])),
-   #             aes(label = admin), col="cornflowerblue",size = 3, check_overlap = TRUE) +
+   geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA)+
    ggtitle("Super Typhoon Sinlaku, Precipitation")+
-   xlim(-500000,800000)+ylim(-12e5,0)+
-   theme(axis.title = element_blank(),panel.grid=element_blank())
+  scale_x_continuous(limits=c(145,155),breaks=c(142,148,152))+ylim(6,16)+
+   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="bottom")
 print((Cam/Sin)+plot_layout(heights = c(1, 2)))
+```
+
+Just as for the wind products, precipitation can also be aggregated to provide a summary of the entire storm. Of particular interest for rain is the total accumulation, and perhaps the mean rainfall rate. Although not shown here, pre-storm precipitation associated with potential 'precursor rain events' might also be included in such an aggregation. See the [Rains](https://bbranoff.github.io/Cyclones/Rains.html) vignette for more details. 
+
+```{r plotrain_agg,echo=TRUE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=7,fig.align='left',fig.cap="Fig 5. Aggregating the individual time step layers from get_precip() produces a whole-storm perspective. In this case, the total accumulated rainfall. Aggregating can also include prestorm precipitation if available."}
+
+### use the 'app()' function from terra to sum across the timesteps
+Cam_precip <- app(precip_Camille,fun="sum",na.rm=TRUE)
+terra::plot(Cam_precip,main="Hurricane Camille, 1969 - Total Rainfall (mm)")
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_precip))),add=TRUE)
 ```
 
 # Get Storm Surge
@@ -400,21 +411,6 @@ Unlike the wind and precipitation methods, get_surge() does not allow for spatia
 
 ### as with the other functions, dpath will save component data in a directory for direct future access (no download necessary)
 surge_Camille <- get_surge(storms$CAMILLE_1969_NA_1969226N18280,dpath="./Storm Surge/")
-surge_Sinlaku <- get_surge(storms$SINLAKU_2026_WP_2026099N09152,dpath="./Storm Surge/")
-
-
-ggplot(data=as.data.frame(surge_Sinlaku$rast,xy=TRUE)|>rename(value=3)|>
-         filter(x<146,x>145,y<15.5,y>14)) +
-  geom_raster(aes(x=x,y=y,fill=value))+
-  scale_fill_viridis_c(n=10,na.value = "transparent",name="Surge level\nabove MHHW\n(m)")+
-  coord_sf(crs ="+proj=robin +lon_0=180")+
-  theme_bw()+
-  geom_sf(data=st_as_sf(surge_Sinlaku$points,coords=c("lon","lat"),crs=4326),aes(col=source))+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
-  ggtitle("Typhoon Sinlaku Storm Surge at Northern Mariana Islands")+
-  xlim(145,146)+ylim(14,15.5)+
-  theme(axis.title = element_blank(),panel.grid=element_blank())
 
 ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),xy=TRUE)|>rename(value=3)) +
   geom_raster(aes(x=x,y=y,fill=value))+
@@ -431,7 +427,7 @@ ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),xy=TRUE
 
 ```
 
-```{r plot_surge,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=7,fig.cap="Fig 5. Results of get_surge() are a single layer only, representing the maximum surge depth above ground for each location during the storm, as well as a corresponding summary table of water level observations. Surge depth is a simple difference between a nearby water level observation and the ground elevation. Only depths greater than the mean high high tide are returned. For storms outside of United States jurisdictions, and for any storm before 2000, water level observations are scarce and the CMIP6 model is usually used instead. This model is known to underestimate extreme surge values. Water level sources can be viewed via the corresponding table produced for each storm."}
+```{r plot_surge,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=10,fig.cap="Fig 6. Results of get_surge() are a single layer only, representing the maximum surge depth above ground for each location during the storm, as well as a corresponding summary table of water level observations. Surge depth is a simple difference between an interpolation of nearby water level observations and the ground elevation. Only depths greater than the mean high high tide are returned. For storms outside of United States jurisdictions, and for any storm before 2000, water level observations are scarce and the CMIP6 model is usually used instead. This model is known to underestimate extreme surge values. Water level sources can be viewed via the corresponding table produced for each storm (below)."}
 surge_Camille <- list(rast=rast("I:/Cyclone Products/Storm Surge/v2/CAMILLE_1969_NA_1969226N18280_surge.tif"),points=read.csv("I:/Cyclone Products/Storm Surge/v2/CAMILLE_1969_NA_1969226N18280_surgepoints.csv"))
 #surge_Sinlaku <- list(rast=rast("I:/Cyclone Products/Storm Surge/v2/SINLAKU_2026_WP_2026099N09152_surge.tif"),points=read.csv("I:/Cyclone Products/Storm #Surge/v2/SINLAKU_2026_WP_2026099N09152_surgepoints.csv"))
 
@@ -442,8 +438,7 @@ gg1 <- ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),
   theme_bw()+
   geom_sf(data=st_as_sf(surge_Camille$points,coords=c("lon","lat"),crs=4326),aes(col=source))+
   geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|>filter(location=="track"),lty=2)+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
+  #geom_sf(data=rnaturalearth::ne_countries(scale=10,country="united states of america"),fill=NA)+
   ggtitle("Hurricane Camille Storm Surge at Louisiana")+
   xlim(-93,-83)+ylim(28,32)+
   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
@@ -455,7 +450,22 @@ gg2 <- ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),
   theme_bw()+
   geom_sf(data=st_as_sf(surge_Camille$points,coords=c("lon","lat"),crs=4326),aes(col=source))+
   geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|>filter(location=="track"),lty=2)+
+  #geom_sf(data=rnaturalearth::ne_countries(scale=10,country="united states of america"),fill=NA)+
   xlim(-90,-87)+ylim(29.5,31)+
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
+gg3 <- ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),xy=TRUE)|>rename(value=3)) +
+  geom_raster(aes(x=x,y=y,fill=value))+
+  scale_fill_viridis_c(n=10,na.value = "transparent",name="Surge depth\n(m)",
+                       breaks=c(0,0.5,1,1.5,2))+
+  coord_sf(crs ="+proj=robin +lon_0=180")+
+  theme_bw()+
+  geom_sf(data=st_as_sf(surge_Camille$points,coords=c("lon","lat"),crs=4326),aes(col=source))+
+  geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|>filter(location=="track"),lty=2)+
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,country="united states of america"),fill=NA)+
+  xlim(-89.5,-89)+ylim(29.8,30.2)+
   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="bottom")
-print(gg1/gg2)
+print(gg1/gg2/gg3)
+```
+```{r surge_table,echo=FALSE,message=FALSE,warning=FALSE}
+head(surge_Camille$points)
 ```

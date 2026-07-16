@@ -73,7 +73,7 @@
 #' @importFrom dplyr filter arrange
 #' @importFrom terra writeRaster
 get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_res=NULL,prestorm=NULL,
-                       agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=TRUE){
+                       agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=FALSE){
   ###  if the supplied input are directories of previously saved rasters, load those
   if (class(storm)[1]=="character"){ return(load_precip(storm,todir,loadrasts))
   #############
@@ -437,7 +437,6 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
   }else{
     precips_storm <- precips_all
   }
-  browser()
   ###  separate the prestorm layers from the storm layers
   if (!is.null(pre_storm)){
     precips_prestorm <- pre_sub_precips(precips_all,cent,pre_storm,cpus=NULL)

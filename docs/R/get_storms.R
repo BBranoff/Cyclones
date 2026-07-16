@@ -19,6 +19,7 @@
 #' @param cols Which columns to retain in the output if consolidate is TRUE. Default is that only consolidated values are retained, in addition to storm identification, location,
 #' and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
 #' all original columns are retained when 'cols' is empty.
+#' @param ... Additional arguments passed to cons_stormdat().
 #' @returns A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are
 #' unique identifiers for storms and used throughout Cyclones as filenames for various functions.
 #' @examples
@@ -33,7 +34,7 @@
 #' NorAtl <- get_storms(basin="NA")
 #'
 #' @importFrom dplyr filter mutate any_of select pull slice group_split syms coalesce group_keys first if_else group_by
-get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,returndf=FALSE){
+get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,returndf=FALSE,...){
   tmf <- tempfile()
   on.exit(unlink(tmf), add = TRUE)
   if (is.data.frame(source)){

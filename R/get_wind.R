@@ -39,7 +39,7 @@
 #' @importFrom sf st_coordinates st_as_sfc st_sf st_crs st_shift_longitude st_geometry_type
 #' @importFrom terra rast res ext extend approximate setValues shift resample app allNA ifel time rotate wrap sources crs project
 get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
-                     todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=TRUE){
+                     todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=FALSE){
   if (!is.null(cpus)){parallel <- TRUE;on.exit(sfStop())}else{parallel <- FALSE}
   ###  if the supplied input are directories of previously saved rasters, load those
   if (class(stormextent)[1]=="character") return(load_wind(stormextent,todir,loadrasts))
@@ -72,20 +72,11 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
     cl <- initiatepar(cpus)
   }
   if(any(methods=="all")) methods=c("TPS","Willoughby","Boose","Holland")
-  if (!any(grep(c("TPS|Willoughby|Boose|Holland"), methods,ignore.case=TRUE))) stop("Unkown 'methods' input")
-  options(warn=1)
-  if (any(grep(c("Boose|Holland"), methods,ignore.case=TRUE))&(all(is.na(stormextent$minpress.mb))||all(is.na(stormextent$maxpress.mb)))){
-    warning("Either all of the minimum or maximum pressure values are missing, cannot compute Boose or Holland methods. Use 'get_storms()' with modelling or choose another method.")
-    methods <- methods[-grep(c("Boose|Holland"), methods,ignore.case=TRUE)]
-  }
-  if (any(grepl("TPS", methods,ignore.case=TRUE))){
-    if (all(is.na(stormextent$kts))||all(stormextent$kts==0)||nrow(stormextent |> filter((!is.na(kts)|kts>0),!is.na(roci.m)))==0){
-      methods <- methods[-grep("TPS", methods,ignore.case=TRUE)]
-      warning("No complete wind field extents found in input. TPS requires at least some wind extents. Use models in 'make_extents()' to model missing values.")
-    }
-    if (nrow(stormextent |> filter((!is.na(kts)|kts>0),!is.na(roci.m)))<length(unique(stormextent$date))) warning("Not all dates have wind extents. TPS will only be calculated for dates with wind extents.")
-    if (all(is.na(stormextent$minpress.mb))||all(is.na(stormextent$maxpress.mb))) warning("Either all of the minimum or maximum pressure values are missing, cannot compute pressure difference for TPS power calculation. Power will be missing. Use 'get_storms()' with modelling.")
-  }
+  stormextent <- check_extents(stormextent,methods,s_res)
+  if (is.null(stormextent)) return(NULL)
+  rTempP <- stormextent$rTempP
+  methods <- stormextent$meths
+  stormextent <- stormextent$stormextent
   options(warn=0)
   if (!is.null(todir)){
     if (!substr(todir,nchar(todir),nchar(todir))=="/") todir=paste0(todir,"/")
@@ -99,42 +90,45 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
   ##  TPS just needs a projected crs
   ##  must use a shifted(rotated) crs to avoid the antimeridian for theoretical models
   ##  if the ROCI is missing, assume it is around 500km
-  if (any(stormextent |> group_by(date)|>mutate(missingROCI= !("ROCI" %in% location))|>pull(missingROCI))){
-    warning("ROCI missing for some dates, assuming 500 km for storm extent calculations")
-    tempextent <-bind_rows(stormextent |> filter(location=="ROCI"),
-                           stormextent |> filter(location=="track points") |> st_buffer(500000))
-    rTempP <- rast(ext=tempextent |> ext(), resolution=s_res,
-                   crs=crs(tempextent))
-  }else{
-    rTempP <- rast(ext=stormextent |> ext(), resolution=s_res,
-                   crs=crs(stormextent))
-  }
   rTemps <- list(rTempG=rotate(project(rTempP,"epsg:4326")),rTempP=rTempP)
-  #centers = interp_track(stormextent,t_res,rTemps$rTempG)
   rTemps <- lapply(rTemps,wrap)
   winds <- list()
   for (meth in tolower(methods)){
-    if (meth=="tps"){
-      ##  can only compute TPS on non-missing wind extents
-      dates = stormextent |> filter(!location %in% c("track","track points"),source=="native")|>pull(date)|>unique()
-      ##  the last date will be included on the previous timestep, so remove it
-      if (length(dates)>1) dates <- dates[-length(dates)]
-      cat(paste0(round(100*length(dates)/length(unique(stormextent$date))),"% of original data included in TPS calculation. Adjust t_res for more complete inclusion.\n"))
-    } else {
-      stormextent= stormextent |>filter(source=="native")
-      dates=stormextent |> filter(location=="track points")|>pull(date)|>unique()
-    }
+    dates = stormextent |> filter(source=="native")|>pull(date)|>unique()
     if (!is.null(todir)){
-      newdir <- paste0(todir,"/",meth,"/")
-      if (!dir.exists(newdir)) dir.create(newdir)
-    }else{newdir=NULL}
-    fun <- match.fun(meth)
-    cat(paste0("processing wind for ", unique(stormextent$name),"_",unique(format(stormextent$date,"%Y"))," via ",meth,"\n"))
-    if (parallel){
-      msw <- parallelwind(dates, stormextent, rTemps,cpus,fun,newdir,overwrite,cl)
-    }else{
-      msw <- lapply(seq_along(dates),fun,stormextent,rTemps,newdir,overwrite,eye_option=eye_option)
+      tofiles <- paste0(todir,"/",meth,"_",unique(stormextent$ID),"_",unique(format(dates,"%Y%m%d%H%M")),".tif")
+      if (any(file.exists(tofiles))&overwrite==FALSE){
+        mswexists <- tofiles[file.exists(tofiles)]
+        dates <- dates[!file.exists(tofiles)]
+      }else{mswexists <- NULL}
     }
+    if (length(dates)>0){
+      if (meth=="tps"){
+        stormextent_model <- stormextent |> filter(date %in% dates)
+        ##  can only compute TPS on non-missing wind extents
+        ##  the last date will be included on the previous timestep, so remove it
+        if (length(dates)>1) dates <- dates[-length(dates)]
+        cat(paste0(round(100*length(dates)/(length(stormextent|>filter(location=="track points",source=="native")|>pull(date)|>unique())-1)),"% of original data included in TPS calculation. Adjust t_res for more complete inclusion.\n"))
+      } else {
+        stormextent_model <- stormextent |> filter(source=="native",location=="track points") |>
+          shift_track()
+      }
+      if (!is.null(todir)){
+        newdir <- paste0(todir,"/",meth,"/")
+        if (!dir.exists(newdir)) dir.create(newdir)
+      }else{newdir=NULL}
+      fun <- match.fun(meth)
+      cat(paste0("processing wind for ", unique(stormextent$name),"_",unique(format(stormextent$date,"%Y"))," via ",meth,"\n"))
+      if (parallel){
+        msw <- parallelwind(dates, stormextent_model, rTemps,fun,eye_option=eye_option)
+      }else{
+        msw <- lapply(seq_along(dates),fun,stormextent_model,rTemps,eye_option=eye_option)
+      }
+      msw <- c(mswexists,msw)
+    }else{
+      msw <- mswexists
+    }
+    cat("\n")
     msw <- Filter(Negate(is.null), msw)
     msw <- unlist(interp_rast(msw,stormextent,parallel))
     msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel)
@@ -166,36 +160,37 @@ initiatepar <- function(cpus,type="wind"){
   library(snowfall)
   sfStop()
   #logtmp <- tempfile(fileext=".txt")
-  sfInit(parallel=TRUE, cpus) ## WARNING: Do not overdo the number of CPUs. Verify your machine's capacity beforehand.
-  sfLibrary(sf)
-  sfLibrary(terra)
-  sfLibrary(Cyclones)
-  if (type=="surge"){sfLibrary(gstat)}
-  if (type=="wind"){
+  sfInit(parallel=TRUE, cpus)
+  suppressMessages({
     sfLibrary(dplyr)
-    sfLibrary(fields) # for the TPS models
-    sfLibrary(geosphere)  # for the bearing function
+    sfLibrary(sf)
+    sfLibrary(terra)
     sfLibrary(Cyclones)
-  }
-  if (type=="extents"){
-    sfLibrary(dplyr)
-    sfLibrary(purrr)
-    sfLibrary(tidyr)
-    #exp_model_extent <- Cyclones:::model_extent
-    #sfExport("exp_model_extent")
-    #exp_stdh_cast_substring <- Cyclones:::stdh_cast_substring
-    #sfExport("exp_stdh_cast_substring")
-    #exp_rot <- Cyclones:::rot
-    #sfExport("exp_rot")
-  }
-  if (type=="precip"){sfLibrary(googledrive);sfLibrary(earthdatalogin)}
+    if (type=="surge"){sfLibrary(gstat)}
+    if (type=="wind"){
+      sfLibrary(dplyr)
+      sfLibrary(fields) # for the TPS models
+      sfLibrary(geosphere)  # for the bearing function
+    }
+    if (type=="extents"){
+      sfLibrary(purrr)
+      sfLibrary(tidyr)
+      #exp_model_extent <- Cyclones:::model_extent
+      #sfExport("exp_model_extent")
+      #exp_stdh_cast_substring <- Cyclones:::stdh_cast_substring
+      #sfExport("exp_stdh_cast_substring")
+      #exp_rot <- Cyclones:::rot
+      #sfExport("exp_rot")
+    }
+    if (type=="precip"){sfLibrary(googledrive);sfLibrary(earthdatalogin)}
+  })
   # sfLibrary(snowfall) # for sfCat messaging capability
 }
-parallelwind <- function(dates,cents, r,cpus,meth,todir=NULL,overwrt,cluster) {
+parallelwind <- function(dates,cents, r,meth,eye_option) {
   ##  must wrap the template raster in order to pass to all the nodes
   #msw <- pblapply(seq_along(dates),meth, cents, r,todir,overwrt,cl=cluster)
   #msw <- sfLapply(seq_along(dates),meth, cents, r,todir,overwrt)
-  msw <- sfClusterApplyLB(seq_along(dates),meth, cents, r,todir,overwrt)
+  msw <- sfClusterApplyLB(seq_along(dates),meth, cents, r,eye_option=eye_option)
   msw
 }
 deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
@@ -205,7 +200,7 @@ deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel
     ###  only keep the files that arent already saved if overwrite is FALSE?
     ### can only do this if out of parallel
     ### for parallel, saving is done once all files are assembled
-    tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M"),".tif")
+    tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M",tz="UTC"),".tif")
     if (!is.null(todir)){
       cat(paste0("Saving to: ",todir,".","\n"))
       if (!overwrite){
@@ -247,3 +242,106 @@ load_wind <- function(storm,todir,loadrasts){
   return(out)#setNames(list(out),paste(strsplit(precips[[1]],"_")[[1]][c(5:8)],collapse ="_")))
 }
 
+
+prep_theoretical_data <- function(L,extents,tmpRas){
+  id =unique(extents$ID[!is.na(extents$ID)])
+  cent <- extents |> slice(L)
+  tmpRasP <- tmpRas$rTempP
+  tmpRas <- tmpRas$rTempG
+  if (class(tmpRas)[1]=="PackedSpatRaster"){tmpRas=suppressWarnings(rast(unwrap(tmpRas)));tmpRasP=suppressWarnings(rast(unwrap(tmpRasP)))}
+  #tmpRas <- crop(tmpRas,ext(extents))
+  msw = cent$maxwind.ms
+  rmw <- cent$rmw.m/1000
+  maxpress= cent$maxpress.mb/0.01
+  minpress=cent$minpress.mb/0.01
+  deltP <- maxpress - minpress
+  if (!is.na(deltP)&&deltP==0) deltP=1
+  crds <- terra::crds(tmpRas, na.rm = FALSE)
+  x <- crds[, 1] - cent$centerX_shifted_geo
+  y <- crds[, 2] - cent$centerY_shifted_geo
+  # Computing distances to the eye of the storm in m
+  distEye <- terra::distance(
+    x = crds,
+    y = st_coordinates(cent|>st_transform(4326)|>st_shift_longitude()),
+    lonlat = TRUE
+  )* 0.001
+  list(vr=distEye,cent=cent,rmw=rmw,msw=msw,deltP=deltP,minpress=minpress,tmpRas=tmpRas,x=x,y=y,crds=crds)
+}
+
+
+package_theoretical_data <- function(dat,tmpRas,tmpRasP,dir,meth,smooth=FALSE){
+  #direction <- rast(t(matrix(direction,ncol=dim(tmpRas)[1])),crs=crs(tmpRas),extent=ext(tmpRas))
+  ##  to get power, must first compute pressure field
+  ###  the pressure field should just be a linear interpolation from the center to the roci
+  ##  start with the distance to the center
+  distr <- rast(matrix(dat$vr,ncol=dim(tmpRas)[1]),crs=crs(tmpRas),extent=ext(tmpRas))
+  distr <- resample(distr,tmpRas)
+  ##  the pressure shouldnt increase after the roci, so set all values greater than roci to roci
+  distr[distr>(dat$cent$roci.m/1000)] <- dat$cent$roci.m/1000
+  P <- dat$minpress+(distr/0.001)*(dat$deltP/(dat$cent$roci.m))
+  dens <- P*100/(287.058*298)
+  kW <- as.numeric(dat$cent$dt)*(0.5*dens*1*(tmpRas)^3)/1000
+  kW[is.na(kW)] <- 0
+  terra::units(tmpRas) <- "m/s"
+  terra::units(kW) <- "kW"
+  terra::units(dir) <- "deg"
+  tmpRas <- rast(list(power.kW=kW,msw.ms=tmpRas,windir.deg=dir))
+  tmpRas <- mask(tmpRas,st_transform(st_buffer(dat$cent,dat$cent$roci.m),4326)|>st_shift_longitude())
+  names( tmpRas) <- paste0(meth,"_",names(tmpRas))
+  terra::time(tmpRas) <- rep(dat$cent$date,each=3)
+  if (smooth){
+    tmpRas <- stormRsmooth(tmpRas,s_res,unwrap(tmpRasP))
+  }else{
+    tmpRas <- project(tmpRas,unwrap(tmpRasP))
+  }
+  return(wrap(tmpRas))
+}
+
+check_extents <- function(exnt,meths,s_res){
+  if (!any(grep(c("TPS|Willoughby|Boose|Holland"), meths,ignore.case=TRUE))) stop("Unkown 'methods' input")
+  options(warn=1)
+  if (any(grep(c("Boose|Holland"), meths,ignore.case=TRUE))&(all(is.na(exnt$minpress.mb))||all(is.na(exnt$maxpress.mb)))){
+    meths <- meths[-grep(c("Boose|Holland"), meths,ignore.case=TRUE)]
+    warning("Either all of the minimum or maximum pressure values are missing, cannot compute Boose or Holland methods. Use models in 'make_extents()' to model missing values or choose another method.")
+    if (length(meths)==0) return(NULL)
+  }
+  if (any(grepl("TPS", meths,ignore.case=TRUE))){
+    if (all(is.na(exnt$kts))||all(exnt$kts==0)||nrow(exnt |> filter((!is.na(kts)|kts>0),!is.na(roci.m)))==0){
+      meths <- meths[-grep("TPS",meths,ignore.case=TRUE)]
+      warning("No complete wind field extents found in input. TPS requires at least some wind extents. Use models in 'make_extents()' to model missing values.")
+    }
+
+    if (nrow(exnt |> filter((!is.na(kts)|kts>0),!is.na(roci.m)))<length(unique(exnt$date))) warning("Not all dates have wind extents. TPS will only be calculated for dates with wind extents.")
+    if (all(is.na(exnt$minpress.mb))|all(is.na(exnt$maxpress.mb))) warning("Either all of the minimum or maximum pressure values are missing, cannot compute pressure difference for TPS power calculation. Power will be missing. Use models in 'make_extents()' to model missing values")
+  }
+  tempextent <- exnt |> group_by(date)|>mutate(missingROCI= !("ROCI" %in% location))
+  if (any(tempextent|>pull(missingROCI))){
+    ###  some dates dont have a ROCI extent but they do have an interpolated ROCI value
+    ###  use that if available
+    ### otherwise, use an average across all storms (~345 km)
+    missingextent <- tempextent |>
+      filter(missingROCI)|>
+      group_by(date)|>
+      mutate(roci.m=if_else(all(is.na(roci.m)),400000,unique(roci.m)))
+    if (any(missingextent$roci.m==400000)) warning("Radius of Last Closed Isobar Missing in some time steps. Using all storms mean value of 345 km + 55 km for storm extent.")
+    missingroci <- missingextent|>
+      filter(location=="track points")
+    missingroci <- st_buffer(missingroci,missingroci$roci.m)|>
+      mutate(location="ROCI avg.")|>
+      st_cast("LINESTRING")
+    extent <-bind_rows(tempextent|>filter(!missingROCI),
+                       missingextent,
+                       missingroci)|>
+      select(-missingROCI)|>
+      ungroup() |>
+      arrange(date)
+    rTempP <- rast(ext=extent |> ext(), resolution=s_res,
+                   crs=crs(extent))
+  }else{
+    rTempP <- rast(ext=exnt |> ext(), resolution=s_res,
+                   crs=crs(exnt))
+    extent <- exnt
+  }
+
+  list(stormextent=extent,rTempP=rTempP,meths=meths)
+}

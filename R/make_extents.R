@@ -40,7 +40,7 @@ make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="C
      st_as_sf(coords=c("LON","LAT"),crs=4326,remove=FALSE)
   }
   options(warn = 0)
-  ###  parallel taking much longet than serial....
+  ###  parallel taking much longer than serial....
   if (!is.null(cpus)) {
     on.exit(sfStop())
     initiatepar(cpus,type="extents")

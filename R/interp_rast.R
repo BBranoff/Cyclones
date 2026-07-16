@@ -1,25 +1,36 @@
 interp_rast <- function(r,track,parallel){
-  #r <- rast(lapply(r,unwrap))
-  #times <- sort(unique(time(r)))
-  #times <- sort(unique(lapply()))
-  rtrim <- lapply(r,function(x) trim(unwrap(x)))
-  rtrim <- lapply(rtrim,wrap)
+
+  ###  this might work across the entire stack, instead of step wise
+  # app(r, fun = function(x) {
+  #zoo::na.approx(x, maxgap = 2, na.rm = FALSE)
+  #})
+
+
+  r <- lapply(r,function(x){
+    if (class(x)=="character") rast(x)#terra::split(trim(rast(x)),1:nlyr(rast(x)))
+    else unwrap(x)
+  })
+  times <- unlist(lapply(r,function(x) unique(time(x))))
+  #rtrim <- rtrim[!duplicated(times)]
+  r <- r[order(times)]
+  rtrim <- lapply(r,function(x) wrap(trim(x)))
   if (parallel){
-    cat("\rinterpolating to desired frequency.")
+    cat("\rinterpolating to desired frequency.\n")
     #sfExport("rtrim","track")
     r_int <- sfClusterApplyLB(1:(length(rtrim)-1),interp_func,rtrim,track)
   } else {
     r_int <- lapply(1:(length(rtrim)-1),interp_func,rtrim,track)
+    cat("\n")
   }
-  r_int <- lapply(unlist(r_int),function(x) project(unwrap(x),unwrap(r[[1]])))
+  r_int <- lapply(unlist(r_int),function(x) project(unwrap(x),r[[1]]))
   r_int
 }
 interp_func <- function(x,rtrim,track){
   #if (parallel) r <- unwrap(r)
   r1 <- unwrap(rtrim[[x]])
   r2 <- unwrap(rtrim[[x+1]])
-  t1 <- time(r1)
-  t2 <- time(r2)
+  t1 <- unique(time(r1))
+  t2 <- unique(time(r2))
   track1 <- track|>filter(date==t1,location=="track points")
   track2 <- track|>filter(date==t2,location=="track points")
   ##  to get the rocis

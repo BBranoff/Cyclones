@@ -43,6 +43,7 @@ computeAsymmetry <- function(asymmetry, wind, x, y, vx, vy, vh, r, rmw, lat) {
   # New wind direction
   direction <- atan2(tWindY, tWindX) * 180 / pi
   direction[direction < 0] <- direction[direction < 0] + 360
+  direction <- (direction + 180) %% 360
 
   return(list(wind = round(wind, 3), direction = round(direction, 3)))
 }

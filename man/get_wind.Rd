@@ -13,7 +13,7 @@ get_wind(
   overwrite = FALSE,
   smooth = FALSE,
   eye_option = "maxwind",
-  loadrasts = TRUE
+  loadrasts = FALSE
 )
 }
 \arguments{

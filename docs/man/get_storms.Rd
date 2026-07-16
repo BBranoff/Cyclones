@@ -13,7 +13,8 @@ get_storms(
   ib_filt = NULL,
   consolidate = TRUE,
   cols = NULL,
-  returndf = FALSE
+  returndf = FALSE,
+  ...
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ translates these values to a common interval.}
 \item{cols}{Which columns to retain in the output if consolidate is TRUE. Default is that only consolidated values are retained, in addition to storm identification, location,
 and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
 all original columns are retained when 'cols' is empty.}
+
+\item{...}{Additional arguments passed to cons_stormdat().}
 }
 \value{
 A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are

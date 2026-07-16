@@ -340,19 +340,22 @@ edl_netrc(username = &quot;XXXX&quot;,password=&quot;XXXX&quot;)
 
 ##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):
 library(googledrive)
-drive_auth()
-
-##  The system is now configured to access the data.
-##  To not have to re-download storm data again, store the raw precipitation files in a local repository (dpath).
-##  Otherwise they will be downloaded to the temporary directory.
-##  likewise, write the results to disk utilizing the &#39;todir&#39; argument, especially when producing high resolution products
-##  the default when providing a &#39;todir&#39; is to return the filenames, but we can explicitly request the rasters with &quot;loadrasts=TRUE&quot;
-##  we can also modify the time step (t_res) and the spatial resolution (s_res).
-##  In the introductory vignette, we did not specify the resolution, so the different native resolutions were returned
-##  Here, we reproject everything to the same resolution when we specify s_res
-##  We also request both 24 and 48 hour pre-storm precipitation
-##  finally, because we are processing all of the methods and using higher resolutions, we can elect a parallel setup using the cpus argument
-precip &lt;- lapply(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,todir=&quot;./products/Rains&quot;,sources=&quot;all&quot;,prestorm=c(24,48),t_res=30,s_res=10000,cpus=15)
+drive_auth()</code></pre>
+<p>The system is now configured to access the data. To not have to
+re-download storm data again, store the raw precipitation files in a
+local repository (dpath). Otherwise they will be downloaded to the
+temporary directory. Likewise, write the results to disk utilizing the
+‘todir’ argument, especially when producing high resolution products.
+The default when providing a ‘todir’ is to return the filenames, but we
+can explicitly request the rasters with “loadrasts=TRUE”. We can also
+modify the time step (t_res) and the spatial resolution (s_res). In the
+introductory vignette, we did not specify the resolution, so the
+different native resolutions were returned Here, we reproject everything
+to the same resolution when we specify ‘s_res’. We also request both 24
+and 48 hour pre-storm precipitation. Finally, because we are processing
+all of the methods and using higher resolutions, we can elect a parallel
+setup using the cpus argument.</p>
+<pre class="r"><code>precip &lt;- lapply(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,todir=&quot;./products/Rains&quot;,sources=&quot;all&quot;,prestorm=c(24,48),t_res=30,s_res=10000,cpus=15)
 ##  Afterwards and with the files already saved to disk, we can load them using their folder names.
 ##  in this case, we have to explicitly set their names in the list for easier navigation
 precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE2024=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;./products/Rains&quot;,loadrasts = TRUE)
@@ -400,7 +403,7 @@ storm. Taking a look at only one of those shows the raster stack. In
 this case, there are 246 layers for Helene, one for each 30 minute
 interval (246/2/24 = 5.125 days). The layers are in the custom lcc
 projection and at the desired 10km spatial resolution. Sources show that
-the files were (or were not) loaded from specific files, and the time
+the images were (or were not) loaded from specific files, and the time
 and units are also shown.</p>
 <pre class="r"><code>###  showing one set of raster stacks
 precip$HELENE2024$ecmwf$storm</code></pre>
@@ -501,20 +504,23 @@ again via the above outlined process.</p>
 <pre class="r"><code>##  unwrap the packed raster products from a parallel call
 ##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
 
-##  results arent the same...need to find a way to list them like they are returned by the app
 precip &lt;- rapply(precip_par, unwrap)</code></pre>
 <p>With the precipitation products processed, we can examine the
 results. To aid in comparing sources and time periods, this is
 demonstrated via ggplot, which requires some manipulation of the raster
 images into data frames. But base plot can also easily be used to
 visualize the raster products.</p>
-<pre class="r"><code>precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE2024=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;I:/Cyclone Products/Precip&quot;,loadrasts = TRUE)
+<pre class="r"><code>###  read in the files saved to disk
+precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE2024=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;I:/Cyclone Products/Precip&quot;,loadrasts = TRUE)
 
+###  convert to data frame, this time only for FRANCES
 r_df &lt;- rapply(precip$FRANCES2004,function(r){
   as.data.frame(project(r[[time(r)==as.POSIXct(&quot;2004-09-04 01:00&quot;)]],&quot;epsg:4326&quot;),xy=TRUE)|&gt;
     tidyr::pivot_longer(cols=3,names_to=&quot;layer&quot;)
   }, how=&quot;list&quot;)
 r_df &lt;- unlist(r_df,recursive=FALSE)
+
+###  join all layers (storm and prestorm) to same df
 r_df &lt;- bind_rows(
   ##  storm data
   bind_rows(r_df[grep(&quot;prestorm&quot;,names(r_df),invert=TRUE,value=TRUE)]),
@@ -522,9 +528,11 @@ r_df &lt;- bind_rows(
   bind_rows(unlist(r_df[grep(&quot;prestorm&quot;,names(r_df),value=TRUE)],recursive=FALSE))
   )
 
+##  for display faceting, add in the method and time-period 
 r_df$method &lt;- sapply(strsplit(r_df$layer,&quot;_&quot;),&quot;[[&quot;,1)
 r_df$period &lt;- sapply(strsplit(r_df$layer,&quot;_&quot;),&quot;[[&quot;,2)
 
+##plot
 ggplot(data=r_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
    facet_grid(method~period)+

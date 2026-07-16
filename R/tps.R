@@ -2,7 +2,7 @@
 #' @importFrom terra rast ext crop rasterize interpolate mask disagg trim aggregate app nlyr union unwrap units
 #' @importFrom fields Tps
 #' @importFrom sf st_agr
-tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,eye_option="given",cpus=FALSE){
+tps <- function(L,tracks,r,smooth=FALSE,eye_option="given"){
   #reye <- r
   r <- rast(unwrap(r$rTempP))
   centers=tracks |>filter(location=="track points",source=="native")|>mutate(dt=difftime(lead(date),date,units="hours"))
@@ -18,10 +18,7 @@ tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,ey
   d1 <- unique(dts)[L]
   #d2 <- unique(dts)[which(unique(dts)==d1)+1]
   #dates <- centers$date[centers$date<=d2&centers$date>=d1] |> unique()
-  tofiles <-paste0(todir,"/tps_",unique(tracks$ID[!is.na(tracks$ID)]),"_",unique(format(d1,"%Y%m%d%H%M")),".tif")
-  if (!is.null(todir)){
-    if (all(file.exists(tofiles))&overwrite==FALSE) return(tofiles)
-  }
+
   #timestep <- as.numeric(difftime(d2,d1,units="hours"))
   line1 <- lne |>
     filter(date==d1)
@@ -100,7 +97,7 @@ tps <- function(L,tracks,r,todir=NULL,overwrite=FALSE,smooth=FALSE,trim=FALSE,ey
   ##  wrap the results for parallel compatability
  return(wrap(rall))
 }
-tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
+tps_interpolate <- function(line,center,r,eye_opt){
   ###  from Holland 1980
   Beta <- 1.0036+0.0173*as.numeric(max(line$kts,na.rm=TRUE)+
                                      0.0313*log(min(line$rmw.m,na.rm=TRUE))+
@@ -110,17 +107,19 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
     mutate(P=minpress.mb+((maxpress.mb-minpress.mb)*exp(-(min(dist.m[kts>0],na.rm=TRUE)/dist.m)^Beta)))
   ### crop the line to the outer extent of the storm
   ###  if the roci was missing because the extents weren't modeled, set it to 500km
-  if ("ROCI" %in% line$location) outer=line |> filter(location=="ROCI")
-  else(outer=line |> filter(location=="track points")|>st_buffer(500000))
+  ###  this should be done now by check_extents()
+  #if (any(grepl("ROCI",line$location))) outer=line |> filter(location=="ROCI")
+  #else(outer=line |> filter(location=="track points")|>st_buffer(400000))
   ###   Using the original ROCI can create extreme and unnatural shifts in wind Velocity with the thin spline method
   ###   to avoid this, bump the 0 velocity line out a bit further
   ###   we will still zero out the original ROCI later, this is only for the thine spline interpolation
-  sf::st_agr(outer) <- "constant"  ##  to avoid sf warning about repeating sub geometries
+  #sf::st_agr(outer) <- "constant"  ##  to avoid sf warning about repeating sub geometries
   line <- bind_rows(line,
-                    st_buffer(outer|>st_cast("POLYGON"),outer$dist.m*.1) |>
-                      mutate(location="ROCI2",dist.m=dist.m+dist.m*.1)|>st_cast("LINESTRING"))
-  ##  cropping will chnage extent relative to other methods
-  ##  but necessary to avoid way to ong processing times for interpolating empty space
+                    suppressWarnings(line|>filter(location=="track points")|>
+                                       mutate(geometry=st_buffer(geometry,dist=roci.m*1.1),location="ROCI2",dist.m=roci.m*.1,kts=0)
+                                     |>st_cast("LINESTRING")))
+  ##  cropping will chage extent relative to other methods
+  ##  but necessary to avoid way to long processing times for interpolating empty space
   ##  results are reprojected back to original r afterwards
   r_cr <- crop(r,line|>filter(location=="ROCI2"))#rast(crs=crs(r),res=res(r),extent=ext(line))
   ####  remove the eye and the outer storm limits (note: currently keeping these in as they were important when comparing to sonde data. Removing them speeds up analysis significantly)
@@ -158,13 +157,13 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   if ("eye" %in% line$location&&eye_opt=="maxwind") {
     line <- line|>mutate(kts=if_else(location=="eye",max(kts,na.rm=TRUE)*0.8,kts))
   }
-  rv <-  rasterize(bind_rows(line|>filter(!location %in%c("ROCI","track","track points")),
+  rv <-  rasterize(bind_rows(line|>filter(!location %in% c("ROCI","ROCI avg.","track","track points")),
                              st_buffer(line[line$location=="track points",],1)|>mutate(kts=10)|>st_cast("LINESTRING")), r_cr, "kts",touches=T,fun="mean")
   #rv2 <-  rasterize(
     ###  the normal extents
   #  line|>filter(!location %in%c("ROCI","track","track points")),
   #  r, "kts",touches=T,fun="mean")
-  rP <-  rasterize(bind_rows(line|>filter(!location %in%c("ROCI","track","track points")),
+  rP <-  rasterize(bind_rows(line|>filter(!location %in% c("ROCI","ROCI avg.","track","track points")),
                              st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r_cr, "P",touches=T)
   ###  convert the xyz values to a dataframe for thin spline interpolation
   xyv <- as.data.frame(rv, xy=T,na.rm=F)
@@ -209,7 +208,32 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
     ##  overlay the eye with the rest of the storm and take the minimum
     p_v <- app(c(p_v,p_v_eye),"min",na.rm=TRUE)
   }
-
+  if (eye_opt=="willoughby"){
+    eye=rotate(project(p_v,"epsg:4326"))
+    crds <- terra::crds(eye, na.rm = FALSE)
+    distEye <- terra::distance(
+      x = crds,
+      y = st_coordinates(line|>filter(location=="track points")|>st_transform(4326)|>st_shift_longitude()),
+      lonlat = TRUE
+    )* 0.001
+    x <- crds[, 1] - (line|>filter(location=="track points")|>st_transform(4326)|>st_shift_longitude()|>st_coordinates())[1]
+    y <- crds[, 2] - line|>filter(location=="track points")|>pull(centerY)
+    msw = line|>filter(location=="track points")|>pull(maxwind.ms)
+    lat= line|>filter(location=="track points")|>pull(centerY)
+    rmw <- round(line|>filter(location=="track points")|>pull(rmw.m)/1000)
+    if (is.na(rmw)) rmw <- round(46.4 * exp(-0.0155 * msw + 0.0169 * abs(lat)))
+    x1 <- 287.6 - 1.942 * msw + 7.799 * log(rmw) + 1.819 * abs(lat)
+    x2 <- 25
+    a <- 0.5913 + 0.0029 * msw - 0.1361 * log(rmw) - 0.0042 * abs(lat)
+    n <- 2.1340 + 0.0077 * msw - 0.4522 * log(rmw) - 0.0038 * abs(lat)
+    vr <- distEye
+    vr[distEye >= rmw*1.1] <- NA
+    vr[distEye < rmw*1.1] <- msw * abs((distEye[distEye < rmw*1.1] / rmw*1.1)^n)
+    terra::values(eye) <- vr
+    eye <- project(eye,p_v)
+    #p_v[!is.na(eye)] <- eye[!is.na(eye)]
+    p_v <- app(c(p_v,eye),"mean",na.rm=TRUE)
+  }
   ###  in case the model predicts higher than recorded wind speeds, set them to the maximum known
   p_v <- terra::clamp(p_v,lower=0,upper=max(line$kts,na.rm=TRUE))
   #p_v <- terra::mosaic(terra::sprc(list(p_v,eye)), fun="min")
@@ -222,7 +246,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   #p_P[p_P>max(line$maxpress,na.rm=T)] <- max(line$maxpress,na.rm=T)
   #p_v[p_v<0] <- 0
   ###  now set the outer limits of the storm to missing or blank
-  p_v <- mask(p_v,outer |> st_cast("POLYGON"),updatevalue=NA)
+  p_v <- mask(p_v,line|>filter(location %in% c("ROCI","ROCI avg."))|> st_cast("POLYGON"),updatevalue=NA)
   ###  now model the winds inside of the eye based on the other methods
   # if ("eye" %in% unique(line$location)){
   #p_v <- mask(p_v,line |> filter(location=="eye")|>st_cast("POLYGON"),inverse=T,updatevalue=-999)
@@ -235,8 +259,7 @@ tps_interpolate <- function(line,center,r,trim=FALSE,eye_opt){
   #  names(p_v) <- "lyr.1"
   #}
 
-  ###  trim if desired
-  if (trim) p_v <- trim(p_v)
+
   windir <- get_dir(p_v,center)
 
   ##  to calculate power:

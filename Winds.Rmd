@@ -4,9 +4,10 @@ title: "Winds"
 
 The following methods demonstrate some of the more detailed capabilities of the 
 wind products from Cyclones. This includes:
-** Modeling wind extents for storms with incomplete data
-** Building high resolution wind rasters at specific timesteps
-** Compare rasters with hurricane hunter reconnaissance drop sonde data
+
+* Modeling wind extents for storms with incomplete data
+* Building high resolution wind rasters at specific timesteps
+* Compare rasters with hurricane hunter reconnaissance drop sonde data
 
 
 # Get Storm Tabular Data
@@ -34,18 +35,73 @@ library(patchwork)
 library(dplyr)
 library(sf)
 library(terra)
+library(knitr)
+library(kableExtra)
 #stuff <- readRDS("E:/OneDrive - USDA/Hurricanes/R Package/READMEstuff.rds")
 windextents <- readRDS("I:/Cyclone Products/Wind/windextents_30.rds")
+#mods <- readRDS("I:/Cyclone Products/Wind/mods.rds")
+# modat <- list(dat1=mods$distmods |>
+#   filter(lengths(model_asymp)>1)|>
+#   mutate(preds=map2(model_asymp,data,~predict(.x,newdata=.y)))|>
+#   select(-model_asymp,-model_lm)|>
+#   unnest(data,preds)|>
+#   filter(USA_SSHS %in% c(1:5),quad!="all",!BASIN %in% c("NI","SA")) |> 
+#   slice_sample(n=1000,by=c(BASIN,quad))|>
+#   rename(Cat=USA_SSHS),
+#   dat2 = mods$distmods |>
+#   filter(lengths(model_asymp)>1)|>
+#   mutate(preds=map2(model_asymp,data,~predict(.x,newdata=.y)))|>
+#   select(-model_asymp,-model_lm)|>
+#   unnest(data,preds)|>
+#   filter(USA_SSHS ==5,quad=="all",BASIN!="all") |> 
+#   slice_sample(n=1000,by=c(BASIN,quad)),
+#   dat3=mods$emod |>
+#   mutate(preds=map2(model,data,~predict(.x,newdata=.y)))|>
+#   select(-model)|>
+#   unnest(data,preds)|>
+#   filter(USA_SSHS>0,!BASIN %in% c("NI","SA"))|>
+#   slice_sample(n=1000,by=c(BASIN,USA_SSHS))|>
+#   rename(Cat=USA_SSHS),
+#   dat4= mods$rocimod |>
+#   mutate(preds=map2(model,data,~predict(.x,newdata=.y)))|>
+#   select(-model)|>
+#   unnest(data,preds)|>
+#   filter(dist<500,USA_SSHS>0,!BASIN %in% c("NI","SA"))|>
+#   slice_sample(n=1000,by=c(BASIN,USA_SSHS))|>
+#    rename(Cat=USA_SSHS))
+modat <- readRDS("I:/Cyclone Products/Wind/mods_dat.rds")
 windextents_unmodeled <- windextents$windextents_unmodeled
 windextents <- windextents$windextents
 #allstorms <- get_storms("I:/ibtracs.ALL.list.v04r01.csv")
 #storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 ```
+
+Because the native IBTrACS data includes input from multiple meteorological 
+agencies across the globe, the get_storms() function will automatically 
+consolidate values across these agencies. The United States (USA) contains the lowest
+number of missing values, so it is selected by default, with the World Meteorological
+Organization (WMO) selected as the secondary choice. If those values are missing 
+but values from other agencies are available, they will be used instead. Alternatively,
+users can select another agency at their discretion. This is done via the 'pref' 
+argument, ehich can be one of: USA, WMO, TOKYO, CMA, HKO, KMA, NEWDELHI, REUNION, BOM,
+NADI, WELLINGTON, DS824, TD9636, TD9635, NEUMANN, or MLC. See the 
+[IBTrACS documentation](https://www.ncei.noaa.gov/sites/default/files/2025-09/IBTrACS_v04r01_column_documentation.pdf) 
+for more information. 
+
+Further, because these agencies use different definitions for the maximum sustained 
+wind, these values can also be manipulated to ensure consistency. This is done via
+the 'msw_int' argument, which can one of: '10min', '1min', '2min', or '3min'.  
+
+```{r consolidate,eval=FALSE}
+##  getting the Japanese values but converting to 1min sustained wind intervals
+allstorms_JPN1min <- get_storms("./ibtracs.ALL.list.v04r01.csv",pref='TOKYO',msw_int='1min')
+```
+
 # Get Wind Products
 With the tabular data loaded, they can now be used to build wind rasters. 
 
 ## Build Extent Models
-If linear extents of wind speeds and cyclone regions (eye, radius of last closed isobar (ROCI)) are needed, or if the Thin Plate Spline (TPS) wind method is desired, wind extent models are built into a lookup table (The empirical TPS method is shown below to be more accurate than the theoretical models). These lookup tables should be based on as full or limited a set of storms as necessary for the objective. For generalized modeling, its best to use a full set of storms (ib_filt="all" in the above get_storms() call).
+If linear extents of wind speeds and cyclone regions (eye, radius of last closed isobar (ROCI)) are needed, or if the Thin Plate Spline (TPS) wind method is desired, wind extent models are built into a lookup table (The empirical TPS method is shown below to sometimes be more accurate than the theoretical models). These lookup tables should be based on as full or limited a set of storms as necessary for the objective. For generalized modeling, its best to use a full set of storms (ib_filt="all" in the above get_storms() call).
 
 ```{r buildmodels, warning=FALSE,message=FALSE,eval=FALSE}
 ## build the models based on the entire storm dataset.  
@@ -54,6 +110,78 @@ If linear extents of wind speeds and cyclone regions (eye, radius of last closed
 ## for every storm size and in every basin. 
 mods <- build_models(allstorms)
 ```
+
+The models returned by 'build_models()' are nested inside a data frame. While this 
+nesting makes passing and using the models more fluid, it complicates saving them
+to disk or viewing them in the browser. Thus, users should be careful when attempting
+to do so. Models are always grouped by oceanic basin and size (saffir-simpson scale), 
+as well as by quadrant when applicable. There are 5 sets of models. The 'distmods' 
+describe wind extent as a function of wind speed. The 'emod' describes the eye radius
+as a function of the radius of the maximum wind speed. The 'roci' mods describe the radius of 
+the last closed isobar (storm's maximum extent) as a function of the largest wind 
+extent. The 'poci' mods describe the pressure difference between the inner low 
+and the outer high as a function of the maximum wind speed. Also included is a 
+table of the mean minimum pressure for each size storm in each basin. 
+
+```{r plot_distmods,echo=FALSE, warning=FALSE,message=FALSE,eval=TRUE,fig.width=9,fig.height=9,fig.cap="Fig 1. The results of build_models() are nested data frames containing the original storm data, along with models describing important wind and pressure extents. Predictions from these models are shown here with small random samples of the data, and are used in the make_extents() function to estimate missing extents, such as the radius of maximum wind, the eyewall radius, and the radius of the last closed isobar. Most models are only computed for category 0 and above and although the Northern Indian and Southern Atlantic are included in the models, they are not shown due to limited plotting space."}
+gg1 <- modat$dat1|>
+  ggplot()+
+  geom_point(aes(x=windspeed,y=dist,col=as.factor(BASIN)),size=.5)+
+  geom_line(aes(x=windspeed,y=preds,col=as.factor(BASIN)),size=1)+
+  scale_y_log10(breaks=c(0,3,30,300))+
+  scale_x_continuous(breaks=c(50,150))+
+  facet_grid(Cat~quad,labeller = label_both)+
+  guides(col=guide_legend("Basin"))+
+  xlab("Windspeed (knots)")+
+  ylab("Extent (nautical miles)(log scale)")+
+  ggtitle("Wind Extent vs Speed\nBy Quadrant and\nSaffir-Simpson Category")+
+  theme_bw()
+
+#A closer look demonstrates how distances are different across basins. For instance, typhoons and cyclones (in the Pacific and Indian oceans) tend to be much bigger than hurricanes (Atlantic storms).
+
+gg2 <- modat$dat2|>
+  ggplot()+
+  geom_point(aes(x=windspeed,y=dist,col=as.factor(BASIN)))+
+  geom_line(aes(x=windspeed,y=preds,col=as.factor(BASIN)),size=1)+
+  scale_y_log10()+
+  ggtitle("Category 5 Storms\nAll Quadrants")+
+  guides(col=guide_legend("Basin"))+
+  xlab("Windspeed (knots)")+
+  ylab("Extent (nautical miles)")+
+  theme_bw()+
+  theme(legend.position="none",axis.title.y = element_blank())
+
+gg3 <- modat$dat3|>
+  ggplot()+
+  facet_grid(Cat~BASIN,labeller = label_both)+
+  geom_point(aes(x=minwinddist,y=eyedist,col=as.factor(BASIN)),size=0.5)+
+  geom_line(aes(x=minwinddist,y=preds,col=as.factor(BASIN)),size=1)+
+  ggtitle("Eye Wall Radius\nBy Basin and\nSaffir-Simpson Category")+
+  guides(col=guide_legend("Basin"))+
+  scale_x_continuous(breaks=c(30,90))+
+  scale_y_continuous(breaks=c(10,50))+
+  xlab("Extent of Maximum Winds (nautical miles)")+
+  ylab("Eye Wall Radius (nautical miles)")+
+  theme_bw()+
+  theme(legend.position="none")
+
+gg4 <-modat$dat4|>
+  ggplot()+
+  facet_grid(Cat~BASIN,labeller = label_both)+
+  geom_point(aes(x=dist,y=ROCI,col=as.factor(BASIN)),size=0.5)+
+  geom_line(aes(x=dist,y=preds,col=as.factor(BASIN)),size=1)+
+  ggtitle("Radius of Last Closed Isobar\nWith Maximum Wind Extent\nBy Basin and\nSaffir-Simpson Category")+
+  guides(col=guide_legend("Basin"))+
+  scale_x_continuous(breaks=c(100,400))+
+  scale_y_continuous(breaks=c(200,600))+
+  xlab("Maximum Extent of Winds (nautical miles)")+
+  ylab("Radius of Last Closed Isobar (nautical miles)")+
+  theme_bw()+
+  theme(legend.position="none")
+
+print((gg1+gg2)/(gg3+gg4))
+```
+
 
 ## Make Wind Extent Spatial Features
 The above models will allow the reconstruction of certain wind and pressure extents when missing, which is often the case for older (pre 2018) storms. These are particularly useful when using the Thin Plate Spline method for wind modelling, as it allows for the creation of wind field predictions specific to each quadrant and each basin and each storm category based on the other storms in the data. If generalized, mostly symmetrical wind fields are desired, the other non-TPS methods can be used as explained further below. However those often use the radius of maximum wind (RMW), which is also often missing in older storms and can be estimated using the models from 'build_models()'.
@@ -101,22 +229,57 @@ polygons <- lapply(windextents,function(x) x$swaths)
 linestrings <- lapply(linestrings,st_transform,crs=4326)
 ```
 
-These spatial features can also be good for certain storm visualizations in which a fully gridded raster is unnecessary or otherwise unfit for the display objectives. In the below figure, the top panel shows the various extents for thr native timesteps only of our two storms. The lower figure better demonstrates the difference between the native and modeled data, with the older Camille generally lacking any native data when compared to the more recent Sinlaku. Still, Sinlaku native data is missing some of the lower wind extents that would normally be included in a modern North Atlantic storm.    
+The spatial features returned by 'make_extents()' contain information pertaining to the track of the center of the storm, as well as various wind or pressure extents, all at specific time steps. Each feature also contains information pertaining to the storm as a whole, such as the maximum wind, the ROCI, etc. 
 
+Track data can be either native or interpolated, depending on the hour. Native time steps are typically given for every third hour of the day, with some exceptions for landfall events. All other hours are interpolated. For extent, there are two data points that can be either native, interpolated, or modeled. Those two data points are the location of the extent, and the value of that extent. Location can only be either native or interpolated, just as the track data. But the value of the extent can be native, interpolated, or modeled. These are indicated in the source column in the order of location, value. 
+
+The below samples from 'make_extents()' come from unmodeled (top) and modeled (bottom) calls. Notice the missing data in the unmodeled table and the difference in the 'source' column:
+```{r table-demo,message=FALSE,echo=FALSE}
+warning("Non-MODELED wind extents")
+kable(head(windextents_unmodeled$CAMILLE_1969_NA_1969226N18280|>slice_sample(n=1,by=location)), format = "html") |>
+  kable_styling(bootstrap_options = c("striped", "condensed"))|>
+  column_spec(c(7,16), extra_css = "white-space: nowrap;") |>
+  scroll_box(width = "100%")
+```
+```{r table-demo2,message=FALSE,echo=FALSE}
+warning("MODELED wind extents")
+kable(head(windextents$CAMILLE_1969_NA_1969226N18280|>slice_sample(n=1,by=location)), format = "html") |>
+  kable_styling(bootstrap_options = c("striped", "condensed")) |>
+  column_spec(c(4,8,16), extra_css = "white-space: nowrap;") |>
+  scroll_box(width = "100%")
+```
+
+These spatial features can also be good for certain storm visualizations in which a fully gridded raster is unnecessary or otherwise unfit for the display objectives. In the below figures, the top panel shows the various extents for the native timesteps only of our two storms. Figure 2 better demonstrates the difference between native, interpolated, and modeled data, with the older Camille generally lacking any native data when compared to the more recent Sinlaku. Still, Sinlaku native data is missing some of the lower wind extents that would normally be included in a modern North Atlantic storm.    
+
+```{r plot-extents-demo,eval=FALSE}
+###  an example of plotting the windextents via ggplot
+countries <- rnaturalearth::ne_countries(scale="Medium",continent = c("north america","south america","Europe","Africa","Oceania"))
+
+ggplot(windextents$CAMILLE_1969_NA_1969226N18280|>filter(grepl("native",source)))+
+geom_sf(data=countries|>st_transform(st_crs(windextents[[2]])))+
+geom_sf(aes(col=kts))+
+geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms/0.514))+
+scale_color_gradientn(
+    colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
+    values = scales::rescale(c(64, 83, 96, 113,137)), 
+    limits = c(0, 150))+
+ggtitle("Hurricane Camille - 1969")+
+theme_bw()+
+coord_sf(crs = sf::st_crs(4326))+
+  scale_x_continuous(limits=c(-98,-70),n.breaks=4)+
+ylim(15,45)
+```
 
 ```{r plot-extents,message=FALSE,echo=FALSE,warning=FALSE,fig.width=9,fig.height=3.5,fig.cap="Fig 1. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. Here, only the native timesteps are shown, with a mix of native and modeled extents."}
 countries <- rnaturalearth::ne_countries(scale="Medium",continent = c("north america","south america","Europe","Africa","Oceania"))
 Cam <- ggplot(windextents$CAMILLE_1969_NA_1969226N18280|>filter(grepl("native",source)))+#(!grepl("interpolated",source)))+
 geom_sf(data=countries|>st_transform(st_crs(windextents[[1]])))+
-geom_sf(aes(col=kts,fill=kts))+
+geom_sf(aes(col=kts))+
+geom_sf(data=windextents$CAMILLE_1969_NA_1969226N18280|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms/0.514))+
 scale_color_gradientn(
     colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
     values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
     limits = c(0, 150))+
-scale_fill_gradientn(
-    colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
-    values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
-limits = c(0, 150))+
 ggtitle("Hurricane Camille - 1969\nnative time steps only")+
 theme_bw()+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
@@ -125,18 +288,12 @@ ylim(15,45)
 
 Sin <- ggplot(windextents[[2]]|>filter(!grepl("interpolated",source)))+
 geom_sf(data=countries|>st_transform(st_crs(windextents[[2]])))+
-geom_sf(aes(col=kts,fill=kts))+
+geom_sf(aes(col=kts))+
+geom_sf(data=windextents$SINLAKU_2026_WP_2026099N09152|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms/0.514))+
 scale_color_gradientn(
     colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
     values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
     limits = c(0, 150))+
-scale_fill_gradientn(
-    colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
-    values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
-limits = c(0, 150))+
-  #geom_blank(data=limits,aes(x = lon_min, y = lat_min)) +
-  #geom_blank(data=limits, aes(x = lon_max, y = lat_max)) +
-#facet_grid(~ID,space="fixed")+
 ggtitle("Typhoon Sinlaku - 2026\nnative timesteps only")+
 theme_bw()+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
@@ -145,20 +302,14 @@ ylim(0,40)
 
 Mar <- ggplot(windextents$MARIA_2017_NA_2017260N12310|>filter(!grepl("interpolated",source)))+
 geom_sf(data=countries|>st_transform(st_crs(windextents$MARIA_2017_NA_2017260N12310)))+
-geom_sf(aes(col=kts,fill=kts))+
+geom_sf(aes(col=kts))+
+geom_sf(data=windextents$MARIA_2017_NA_2017260N12310|>filter(!grepl("interpolated",source),location=="track points"),aes(col=maxwind.ms/0.514))+
 scale_color_gradientn(
     colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
     values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
     limits = c(0, 150))+
-scale_fill_gradientn(
-    colours = c("black","lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),
-    values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
-limits = c(0, 150))+
-  #geom_blank(data=limits,aes(x = lon_min, y = lat_min)) +
-  #geom_blank(data=limits, aes(x = lon_max, y = lat_max)) +
-#facet_grid(~ID,space="fixed")+
 ggtitle("Hurricane Maria - 2017\nnative timesteps only")+
-theme_bw()+theme(legend.position="none")+
+theme_bw()+theme(legend.position="right")+
 coord_sf(crs = sf::st_crs(4326))+
 scale_x_continuous(breaks=c(-70,-60,-50,-40),limits =c(-80,-45))+
 ylim(10,40)
@@ -168,7 +319,7 @@ print((Cam+Mar+Sin))
 
 
 
-```{r plot-extents2,message=FALSE,echo=FALSE,warning=FALSE,fig.width=7,fig.height=9,fig.cap="Fig 2. Another look at the results of make_extents(), this time looking at the different sources of the data and only for hurricane force winds. If t_res was utilized, interpolated features are also created to fill in the missing times. Also, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps."}
+```{r plot-extents2,message=FALSE,echo=FALSE,warning=FALSE,fig.width=9,fig.height=9,fig.cap="Fig 2. Another look at the results of make_extents(), this time looking at the different sources of the data and only for hurricane force winds. Data sources are given in order of their reference to the location and the value of the feature. If t_res was utilized, interpolated features are also created to fill in the missing times. Also, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information. Because we used modeling to fill in the missing extents, there are a mix of native and modeled features, as well as interpolated features between the native time steps."}
 countries <- rnaturalearth::ne_countries(scale="Medium",continent = c("north america","south america","Europe","Africa","Oceania"))
 
 Cam2 <- ggplot(windextents[[1]]|>filter(kts>=64|location=="eye",source %in% c("native & native","native & modeled","interpolated & native","interpolated & modeled"))|>
@@ -185,7 +336,7 @@ theme_bw()+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
 scale_x_continuous(breaks=c(-92,-90,-88),limits =c(-92,-87))+
 ylim(28,32)+
-facet_grid(~source)
+facet_grid(~source,labeller = label_both)
 
 Sin2 <- ggplot(windextents[[2]]|>filter(kts>=64|location=="eye",source %in% c("native & native","native & modeled","interpolated & native","interpolated & modeled"))|>
                  mutate(source=factor(source,levels=c("native & native","native & modeled","interpolated & native","interpolated & modeled"))))+
@@ -203,9 +354,9 @@ theme_bw()+
         legend.box.spacing = unit(0, "pt"))+
 guides(lty = "none",colour=guide_colourbar("wind speed, kts"))+
 coord_sf(crs = sf::st_crs(4326))+
-scale_x_continuous(breaks=c(144,146),limits = c(144,147))+
-ylim(13,17)+
-facet_grid(~source)
+scale_x_continuous(limits = c(145,147),n.breaks=2)+
+ylim(14,16)+
+facet_grid(~source,labeller = label_both)
 
 Mar2 <- ggplot(windextents$MARIA_2017_NA_2017260N12310|>filter(kts>=64|location=="eye",source %in% c("native & native","native & modeled","interpolated & native","interpolated & modeled"))|>
                  mutate(source=factor(source,levels=c("native & native","native & modeled","interpolated & native","interpolated & modeled"))))+
@@ -219,8 +370,8 @@ scale_color_gradientn(
 ggtitle("Hurricane Maria - Cat. 1+")+
 theme_bw()+theme(legend.position="none")+
 coord_sf(crs = sf::st_crs(4326))+
-scale_x_continuous(breaks=c(-68,-66,-64,-62),limits =c(-68,-62))+
-ylim(15,20)+
+scale_x_continuous(limits =c(-67.5,-65),n.breaks=2)+
+ylim(17,19)+
 facet_grid(~source)
 
 print(Cam2/Mar2/Sin2)
@@ -279,10 +430,10 @@ sfStop()
 winds <- lapply(winds, function(x) lapply(x,unwrap))
 ```
 
-```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=15,results='hide',fig.cap="Fig 2. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results."}
+```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=24,results='hide',fig.cap="Fig 3. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results."}
 
 Camdate = c("196908171100|196908180300|196908181200")
-Sindate = c("202604141000|202604141600|202604150000")
+Sindate = c("202604130900|202604140330|202604150900")
 Mardate = c("201709200900|201709201000|201709201100")
 winds_df <- lapply(grep("CAMILLE|MARIA|SINLAKU",list.dirs("I:/Cyclone Products/Wind/v3_modeled/",recursive=TRUE,full.names=TRUE),value=TRUE),function(x){
   if (grepl("boose|holland|tps|willoughby",x)&grepl("5000_30",x)){
@@ -299,7 +450,8 @@ winds_df <- lapply(grep("CAMILLE|MARIA|SINLAKU",list.dirs("I:/Cyclone Products/W
     r <- rast(x)
     r <- r[[grep("msw",names(r))]]
     df <- as.data.frame(project(r,"epsg:4326"),xy=TRUE)
-    names(df)[3:5] <- paste(names(df)[3:5],rep(unique(time(r))),sep="_")
+    names(df)[3:length(names(df))] <-
+      paste(names(df)[3:length(names(df))],rep(unique(time(r))),sep="_")
     df <- df |>
       tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","time"))|>
       mutate(storm=storm)
@@ -313,11 +465,11 @@ Cam=ggplot(data=winds_df|>filter(storm=="Camille")) +
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
                        limits = c(0, 80),breaks=c(0,20,40,60,80))+
   theme_bw()+
-  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="grey")+
-  ggtitle("Hurricane Camille Wind Field Method Comparisons")+
+  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="black")+
+  ggtitle("A: Hurricane Camille Wind Field Method Comparisons")+
   scale_x_continuous(limits = c(-95,-83 ),n.breaks=4)+
     ylim(23,35)+
-  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position = "none")
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position = "right")
 Sin=ggplot(data=winds_df|>filter(storm=="Sinlaku")) +
   geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(method~time)+
@@ -325,14 +477,14 @@ Sin=ggplot(data=winds_df|>filter(storm=="Sinlaku")) +
                        limits = c(0, 80),breaks=c(0,20,40,60,80))+ ##  same as Camille because they will share the same legend
   coord_sf(crs ="+proj=robin +lon_0=180")+
   theme_bw()+
-  geom_sf(data=rnaturalearth::ne_countries(type="tiny_countries"),fill=NA,col="grey")+
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+
   #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),
   #             aes(label = admin), size = 3, check_overlap = TRUE) +
-  ggtitle("Typhoon Sinlaku Wind Field Method Comparisons")+
-  scale_x_continuous(limits=c(138,155),n.breaks=4)+
-  ylim(8,22.5)+
+  ggtitle("B: Typhoon Sinlaku Wind Field Method Comparisons")+
+  scale_x_continuous(limits=c(137,155),n.breaks=4)+
+  ylim(7,26)+
   theme(axis.title = element_blank(),panel.grid=element_blank(),
-        legend.position="bottom")
+        legend.position="right")
 Mar=ggplot(data=winds_df|>filter(storm=="Maria")) +
   geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(method~time)+
@@ -340,12 +492,12 @@ Mar=ggplot(data=winds_df|>filter(storm=="Maria")) +
                        limits = c(0, 80),breaks=c(0,20,40,60,80))+ ##  same as Camille because they will share the same legend
   coord_sf(crs ="+proj=robin +lon_0=180")+
   theme_bw()+
-  geom_sf(data=rnaturalearth::ne_countries(scale=50),fill=NA,col="grey")+
-  ggtitle("Hurricane Maria Wind Field Method Comparisons")+
+  geom_sf(data=rnaturalearth::ne_countries(scale=50),fill=NA,col="black")+
+  ggtitle("C: Hurricane Maria Wind Field Method Comparisons")+
   scale_x_continuous(limits=c(-70,-60),n.breaks=4)+
   ylim(15,22)+
   theme(axis.title = element_blank(),panel.grid=element_blank(),
-        legend.position="bottom")
+        legend.position="right")
 print(Cam/Mar/Sin)
 ```
 
@@ -353,7 +505,7 @@ print(Cam/Mar/Sin)
 In the introductory vignette, the same wind rasters were produced based on wind extents that were not modeled. While they maintain the uncertainty of the native data, these un-modeled extents are unable to provide much of the information necessary for TPS calculation, and in the case that they do have all of the necessary information, it is sometimes misleading. The below figure demonstrates the difference between wind rasters produced from modeled and un-modeled wind extents. For Camille, modelling allows for the computation of the other methods, which require a radius of maximum wind and an outer pressure estimate at the least. For Sinlaku, modelling helps constrain the maximum wind field.
 
 
-```{r plotwinds2,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=6,fig.cap="Fig 3. The results of get_wind() for Sinlaku, 2026 using only the native wind extents (un-modeled) as well as those from windextents that were supplemented with modeling. The un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area. Non-TPS methods that weren't able to compute for Camille, did so with modeled extents."}
+```{r plotwinds2,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=9,fig.height=12,fig.cap="Fig 4. Comparing the 'modeled' and 'unmodeled' products of get_wind(). Un-modeled use only the native wind extents, while modeled were supplemented with the models produced by 'build_models()'. Older storms, such as Camille (1969) wont compute the non-TPS methods unless supplemented with non-native data. These methods that weren't able to compute for Camille, did so with modeled extents. Notice also that utilizing the extents in TPS typically results in a larger overall footprint, a reflexion of the use of the ROCI (a pressure extent), whereas the other methods only model theoretical wind extents."}
 winds_df_unmodeled <- lapply(grep("CAMILLE|MARIA|SINLAKU",list.dirs("I:/Cyclone Products/Wind/v3_unmodeled/",recursive=TRUE,full.names=TRUE),value=TRUE),function(x){
   if (grepl("boose|holland|tps|willoughby",x)&grepl("5000_30",x)){
     if (grepl("CAMILLE",x)){
@@ -382,19 +534,17 @@ winds_df_unmodeled <- bind_rows(
   winds_df|>mutate(source="modeled")
 )
 
-Sin <- ggplot(data=winds_df_unmodeled |>filter(storm=="Sinlaku",time=="2026-04-15")) +
+Sin <- ggplot(data=winds_df_unmodeled |>filter(storm=="Sinlaku",time=="2026-04-14 03:30:00")) +
   geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(source~method)+
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
                        limits = c(0, 80))+
   theme_bw()+
-  geom_sf(data=rnaturalearth::ne_countries(type="tiny_countries"),fill=NA,col="grey")+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+
   ggtitle("Typhoon Sinlaku Wind Field Method Comparisons")+
-  scale_x_continuous(limits=c(138,155),n.breaks=4)+
-  ylim(8,22.5)+
-  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
+  scale_x_continuous(limits=c(137,155),n.breaks=4)+
+  ylim(7,26)+
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="right")
 
 Cam <- ggplot(data=winds_df_unmodeled |>filter(storm=="Camille",time=="1969-08-18 03:00:00")) +
   geom_raster(aes(x=x,y=y,fill=value))+
@@ -402,68 +552,116 @@ Cam <- ggplot(data=winds_df_unmodeled |>filter(storm=="Camille",time=="1969-08-1
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
                        limits = c(0, 80))+
   theme_bw()+
-  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="grey")+
+  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="black")+
   ggtitle("Hurricane Camille Wind Field Method Comparisons")+
   scale_x_continuous(limits = c(-95,-83 ),n.breaks=4)+
   ylim(23,35)+
-  theme(axis.title = element_blank(),panel.grid=element_blank())
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
 Mar <- ggplot(data=winds_df_unmodeled |>filter(storm=="Maria",time=="2017-09-20 09:00:00")) +
   geom_raster(aes(x=x,y=y,fill=value))+
   facet_grid(source~method)+
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
                        limits = c(0, 80))+
   theme_bw()+
-  geom_sf(data=st_transform(rnaturalearth::ne_countries(scale=50)),fill=NA,col="grey")+
-  ggtitle("Hurricane Camille Wind Field Method Comparisons")+
+  geom_sf(data=st_transform(rnaturalearth::ne_countries(scale=50)),fill=NA,col="black")+
+  ggtitle("Hurricane Maria Wind Field Method Comparisons")+
   scale_x_continuous(limits=c(-70,-60),n.breaks=4)+
   ylim(15,22)+
-  theme(axis.title = element_blank(),panel.grid=element_blank())
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
 print(Cam/Sin/Mar)
 ```
 
 
 Another look at one time step with the published wind extents overlayed from the National Hurricane Center.
-```{r plotwinds3,echo=FALSE,message=FALSE,warning=FALSE,fig.width=7,fig.height=10,fig.cap="Fig 4. Rasters from get_wind() along with the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones, which can be seen here as the non-tps methods drastically underestimate storm size compared to TPS."}
-Sinext <- windextents$SINLAKU_2026_WP_2026099N09152[which(windextents$SINLAKU_2026_WP_2026099N09152$date==as.POSIXct("2026-04-15",tz="UTC")),]
+```{r plotwinds3,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=11,fig.cap="Fig 5. Another comparison of the rasters from get_wind() for Super Typhoon Sinlaku along with a VIIRS derived satellite image and the wind extents from make_extents(). The wind extents are directly used to calculate the TPS method, but they also offer an interesting comparison with the other methods and the visual imagery. The non-TPS methods were primarily developed for North Atlantic cyclones, which are generally half the size of Pacific cyclones and this can be seen here as the non-tps methods drastically underestimate storm size compared to the satellite imagery and the modeled extents. Notice also however, for Sinlaku, how the un-modeled TPS extents do not properly bound the eye, resulting in an inflated maximum wind area."}
+SinRGB <- rast("I:/Sinlaku VIIRS Imagery/typhoonsinlaku_VIIRS_lR.tif")
+SinRGB_zoom<-crop(SinRGB,ext(144.7,147.7,13.2,16))
+#plotRGB(SinRGB[[time(SinRGB)==unique(time(SinRGB))[1]]], r = 1, g = 2, b = 3, stretch = "hist")
+SinRGB_df <- lapply(unique(time(SinRGB)),function(x){
+  t <- x
+  r <- SinRGB[[time(SinRGB)==x]]
+  rz=SinRGB_zoom[[time(SinRGB_zoom)==x]]
+  r <- rast(lapply(r,stretch, histeq=TRUE))
+  rz <- rast(lapply(rz,stretch, histeq=TRUE))
+  rbind(as.data.frame(r, xy = TRUE) %>% mutate(time = t,focus="all"),
+       zoom=as.data.frame(rz, xy = TRUE) %>% mutate(time = t,focus="zoom"))
+})
+SinRGB_df <- do.call(rbind,SinRGB_df)
+colnames(SinRGB_df)[3:5] <- c("R", "G", "B")
+SinRGB_df <- SinRGB_df |>
+  group_by(focus) |>
+  mutate(hex_color = ifelse(is.na(R) | is.na(G) | is.na(B), 
+                            NA, 
+                            rgb(R, G, B, maxColorValue = 1)))
+Sinext <- windextents$SINLAKU_2026_WP_2026099N09152[which(windextents$SINLAKU_2026_WP_2026099N09152$date==as.POSIXct("2026-04-14 03:30:00",tz="UTC")),]
 Sinext <- Sinext[!Sinext$location %in% c("track","track points"),]
 Sinext$kts <- round(Sinext$kts*0.51444)
-all <- ggplot(data=winds_df_unmodeled|>filter(storm=="Sinlaku",time=="2026-04-15",source=="modeled")) +
+Sin_RGB <- ggplot(SinRGB_df|>filter(time==as.POSIXct("2026-04-14 10:24:19", tz="UTC" ),focus=="all")) +
+  geom_raster(aes(x = x, y = y, fill = hex_color)) +
+  scale_fill_identity() +
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+ 
+  scale_x_continuous(limits=c(137,155),n.breaks=4)+
+  #geom_sf(data= windextents$SINLAKU_2026_WP_2026099N09152|>filter(location=="track points")|>st_transform(4326))+
+  geom_sf(data=Sinext|>select(-source)|>st_transform(4326),aes(col=factor(kts)),size=1.5)+
+  scale_color_manual(values=c("lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),name="Wind\nExtents\n(m/s)")+
+  ylim(7,26)+
+  theme_bw()+
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
+Sin_RGB_zoom <- ggplot(SinRGB_df|>filter(time==as.POSIXct("2026-04-14 10:24:19", tz="UTC" ),focus=="all")) +
+  geom_raster(aes(x = x, y = y, fill = hex_color)) +
+  scale_fill_identity() +
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+ 
+  scale_x_continuous(limits=c(137,155),n.breaks=4)+
+  #geom_sf(data= windextents$SINLAKU_2026_WP_2026099N09152|>filter(location=="track points")|>st_transform(4326))+
+  geom_sf(data=Sinext|>select(-source)|>st_transform(4326),aes(col=factor(kts)),size=1.5)+
+  scale_color_manual(values=c("lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),name="Wind\nExtents\n(m/s)")+
+  scale_x_continuous(limits=c(145,147.5),n.breaks=4)+
+  ylim(13.5,16)+
+  theme_bw()+
+  theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
+
+all <- ggplot(data=winds_df_unmodeled|>filter(storm=="Sinlaku",time=="2026-04-14 03:30:00",source=="modeled")) +
   geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~source)+
+  facet_grid(source~method)+
   scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
-                       limits = c(0, 60),breaks=c(0,20,40,60))+
+                       limits = c(0, 70),breaks=c(0,20,40,60))+
   coord_equal() +
   theme_bw()+
-  #geom_sf(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),fill=NA,col="grey")+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(windsSinmsw)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
-  ggtitle("Typhoon Sinlaku\nWind Field Comparisons\nWith Extents")+
+  ggtitle("Typhoon Sinlaku, 2026-04-14 10:24:19\nWind Field Comparisons With Extents")+
   geom_sf(data=Sinext|>select(-source)|>st_transform(4326),aes(col=factor(kts)))+
   scale_color_manual(values=c("lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),name="Wind\nExtents\n(m/s)")+
-  scale_x_continuous(limits=c(138,155),n.breaks=4)+
-  ylim(8,22.5)+
-  theme(axis.text = element_blank(),axis.title = element_blank(),panel.grid=element_blank())
-tps <- ggplot(data=winds_df_unmodeled|>filter(storm=="Sinlaku",time=="2026-04-15",source=="modeled",method=="tps")) +
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+ 
+  scale_x_continuous(limits=c(138,153),n.breaks=4)+
+  ylim(8,22)+
+  theme(axis.text = element_blank(),axis.title = element_blank(),panel.grid=element_blank(),legend.position = "none")
+zoom <- ggplot(data=winds_df_unmodeled|>filter(storm=="Sinlaku",time=="2026-04-14 03:30:00")) +
   geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~source)+
-  scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
-                       limits = c(0, 60),breaks=c(0,20,40,60))+
+  facet_grid(source~method)+
+  scale_fill_viridis_c(n=10,na.value = "transparent",name="Raster Wind (m/s)",
+                       limits = c(0, 70),breaks=c(0,20,40,60))+
   coord_equal() +
   theme_bw()+
-  geom_sf(data=Sinext|>select(-source)|>st_transform(4326),aes(col=factor(kts)))+
-  scale_color_manual(values=c("lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),name="Wind\nExtents\n(m/s)")+
-  scale_x_continuous(limits=c(138,155),n.breaks=4)+
-  ylim(8,22.5)+
+  geom_sf(data=bind_rows(Sinext|>
+                           mutate(source=if_else(source%in%c("interpolated & native") ,"unmodeled","modeled"))|>
+                           filter(source=="unmodeled"),
+                         Sinext|>
+                           mutate(source="modeled"))|>
+            st_transform(4326),aes(col=factor(kts)))+
+  scale_color_manual(values=c("lightgreen","#44AA99","#DDCC77","#CC6677","#882255"),name="Wind Extents (m/s)")+
+  geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA,col="black")+ 
+  scale_x_continuous(limits=c(144.7,147.7),n.breaks=4)+
+  ylim(13.2,16)+
   theme(axis.text = element_blank(),axis.title = element_blank(),panel.grid=element_blank(),
-        legend.position="none")
-print(all/tps)
+        legend.position="top")
+print(Sin_RGB/all/zoom+plot_layout(heights=c(2,1.5,3)))
+#print((Sin_RGB|all+plot_layout(heights=c(4,1)))/(zoom)+plot_layout(heights=c(1.5,2)))
 ```
 
 
 ## Compare Winds With Any Corresponding Drop Sondes
 The compare_winds function will compare the computed raster data with drop sonde data from the National Hurricane Center, if available. Drop sondes are acquired from [NOAA's Hurricane Research Division](https://www.aoml.noaa.gov/hrd/data_sub/hurr.html "NOAA's Hurricane Research Division"). They are high accuracy gps beacons, whose trajectory and sensors provide high frequency wind information (i.e. velocity, direction). Data are available for select storms dating back to 1960. If available, data is ingested, parsed, aggregated, and saved to either a temp drive or a permanent repository, which makes processing more stable if the same storms will be reanalyzed in the future (no need to download). Once the sonde data is ready, they are cross referenced with the wind rasters and matched by location (accuracy dependent on raster resolution) and time (within 5 minutes default). Because of this, a higher temporal resolution for the rasters will result in more matches with the sonde data. Further, although drop sondes collect information along the entire vertical profile of the storm, only surface winds (\<30 m in elevation) are compared here, as those are most comparable to the raster layers. 
 
-The compare_winds function will output a list of spatial feature data frames in a geographic coordinate system, with each entry corresponding to one set of sonde measurements and the corresponding extracted raster value. It can be used to assess and examine the accuracy of the wind products as they related to direct measurements from the sondes. 
+The compare_winds function will also output a list of spatial feature data frames in a geographic coordinate system, with each entry corresponding to one set of sonde measurements and the corresponding extracted raster value as well as its source file. It can be used to assess and examine the accuracy of the wind products relative to to direct measurements from the sondes. 
 
 ```{r compare_winds_false,eval=FALSE}
 ##  The wind rasters (as filenames or loaded into memory) can be compared 
@@ -471,12 +669,12 @@ The compare_winds function will output a list of spatial feature data frames in 
 ##  indicating the ddir will save and load the sonde data from that directory
 comps  <- compare_winds(rasts=windsSinlaku,ddir="./Drop Sondes/")
 comps_r <- do.call(rbind,comps)
-###  get the value closest to the ground for each sonde in each storm
+###  get the value closest to the 30m "surface" elevation ceiling for each sonde
 comps_r_filt <- comps_r |> group_by(sonde, storm, method,var) |>
-  filter(ZW.m==min(ZW.m,na.rm=TRUE)) |>
+  filter(ZW.m==max(ZW.m,na.rm=TRUE)) |>
   ungroup()
 ```
-```{r compare_winds,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=10,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
+```{r compare_winds,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=20,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
 ##  Either the rasters, the linestrings, or both can be compared against the sondes
 comps  <- readRDS("I:/Cyclone Products/Wind/sondestorms/sondecomps.RDS")
 sondeextents <- readRDS("I:/Cyclone Products/Wind/sondestorms/sondestorm_extents.rds")
@@ -488,68 +686,121 @@ comps_r_filt <- comps |>   filter(ZW.m<30)|> group_by(sonde, storm, method,var) 
   ungroup() |>
  left_join(do.call(rbind,lapply(sondeextents,function(x) x|>filter(location=="track points")|>st_transform(crs=4326)|>st_drop_geometry()|>mutate(name=paste0(tolower(name),format(date,"%Y")))|>select(name,date,maxwind.ms)))|>
              select(date,name,maxwind.ms), by = join_by(storm==name,closest(time >= date)))|>
- mutate(value=if_else(var=="msw.ms",value,
-                       if_else(!grepl("boose|willoughby|holland",method),value,
-                               if_else(value<180,value+180,value-180))),
-         Cat=if_else(var=="msw.ms",if_else(maxwind.ms>=70,5,
+ mutate(Cat=if_else(maxwind.ms>=70,5,
                                              if_else(maxwind.ms>=58,4,
                                                      if_else(maxwind.ms>=50,3,
                                                              if_else(maxwind.ms>=43,2,
-                                                                     if_else(maxwind.ms>=33,1,0))))),NA))
+                                                                     if_else(maxwind.ms>=33,1,0))))))
 
 storms <- sample(unique(comps_r_filt$storm),10)
-ggmsw <- ggplot(comps_r_filt|>filter(var=="msw.ms",storm %in% storms)|>mutate(storm=factor(storm))) +
+ggmswall<- ggplot(comps_r_filt|>filter(var=="msw.ms")|>mutate(storm=factor(storm))) +
   geom_point(aes(x=WS.ms,y=value,col=as.factor(Cat)))+
   geom_abline(slope=1,intercept=0,lty=2)+
   #stat_smooth(method='lm',formula="y~x+0",aes(x=WS.ms,y=value))+
-  xlab("Drop Sonde Wind Speed (m/s")+
+  xlab("Drop Sonde Wind Speed (m/s)")+
+  ylab("Modeled Wind Speed (m/s)")+
+  geom_text(data=comps_r_filt|>filter(storm %in% storms)|>
+              st_drop_geometry()|>
+              filter(var=="msw.ms") |>
+              group_by(method) |>
+              summarise(RMSE=paste0("RMSE:",round(sqrt(mean((value-WS.ms)^2,na.rm=TRUE)),1),
+                        "\nRMdSE: ",round(sqrt(median((value-WS.ms)^2,na.rm=TRUE)),1)),
+                        WS.ms=10,value=50)|>ungroup(),aes(x=WS.ms,y=value,label=RMSE,hjust=0))+
+  facet_grid(~method)+
+  guides(col=guide_legend("Saffir-Simpson\nCategory"))+
+  theme_bw()+
+  theme(legend.position = "none")
+
+ggmswcat<- ggplot(comps_r_filt|>filter(var=="msw.ms")|>mutate(storm=factor(storm))) +
+  geom_point(aes(x=WS.ms,y=value,col=as.factor(Cat)))+
+  geom_abline(slope=1,intercept=0,lty=2)+
+  #stat_smooth(method='lm',formula="y~x+0",aes(x=WS.ms,y=value))+
+  xlab("Drop Sonde Wind Speed (m/s)")+
+  ylab("Modeled Wind Speed (m/s)")+
+  geom_text(data=comps_r_filt|>filter(storm %in% storms)|>
+              st_drop_geometry()|>
+              filter(var=="msw.ms") |>
+              group_by(Cat,method) |>
+              summarise(RMSE=paste0("RMSE:",round(sqrt(mean((value-WS.ms)^2,na.rm=TRUE)),1),
+                        "\nRMdSE: ",round(sqrt(median((value-WS.ms)^2,na.rm=TRUE)),1)),
+                        WS.ms=10,value=50)|>ungroup(),aes(x=WS.ms,y=value,label=RMSE,hjust=0))+
+  facet_grid(Cat~method)+
+  guides(col=guide_legend("Saffir-Simpson\nCategory"))+
+  theme_bw()+
+  theme(legend.position = "right")
+
+ggmswstorm <- ggplot(comps_r_filt|>filter(var=="msw.ms",storm %in% storms)|>mutate(storm=factor(storm))) +
+  geom_point(aes(x=WS.ms,y=value,col=as.factor(Cat)))+
+  geom_abline(slope=1,intercept=0,lty=2)+
+  #stat_smooth(method='lm',formula="y~x+0",aes(x=WS.ms,y=value))+
+  xlab("Drop Sonde Wind Speed (m/s)")+
   ylab("Modeled Wind Speed (m/s)")+
   geom_text(data=comps_r_filt|>filter(storm %in% storms)|>
               st_drop_geometry()|>
               filter(var=="msw.ms") |>
               group_by(storm,method) |>
-              summarise(RMSE=paste0("RMSE:\n",round(sqrt(mean((value-WS.ms)^2,na.rm=TRUE)),1)),
-                        WS.ms=10,value=70)|>ungroup(),aes(x=WS.ms,y=value,label=RMSE,hjust=0))+
-  facet_grid(storm~method)
-  #theme(legend.position="none")
+              summarise(RMSE=paste0("RMSE:",round(sqrt(mean((value-WS.ms)^2,na.rm=TRUE)),1),
+                        "\nRMdSE: ",round(sqrt(median((value-WS.ms)^2,na.rm=TRUE)),1)),
+                        WS.ms=10,value=50)|>ungroup(),aes(x=WS.ms,y=value,label=RMSE,hjust=0))+
+  facet_grid(storm~method)+
+  guides(col=guide_legend("Saffir-Simpson\nCategory"))+
+  theme_bw()+
+  theme(legend.position = "none")
 
-ggstorm <- ggplot(comps_r_filt|>filter(var=="msw.ms",storm %in% sample(unique(storm),10))|>mutate(storm=factor(storm,levels=unique(storm)))) +
-  geom_point(aes(x=WS.ms,y=value,col=method))+
-  geom_abline(slope=1,intercept=0,lty=2)+
-  #stat_smooth(method='lm',formula="y~x+0",aes(x=WS.ms,y=value))+
-  xlab("Drop Sonde Wind Speed (m/s")+
-  ylab("Modeled Wind Speed (m/s)")+
-  xlim(-10,70)+
-  geom_text(data=~st_drop_geometry(.x)|>
-              filter(var=="msw.ms") |>
-              group_by(method,storm) |>
-              summarise(RMSE=paste0("RMSE",method,": ",round(sqrt(mean((value-WS.ms)^2,na.rm=TRUE)),1)),
-                        WS.ms=10,value=if_else(method=="boose",90,
-                                               if_else(method=="holland",80,
-                                                       if_else(method=="tps",70,
-                                                               60)))),aes(x=WS.ms,y=value,label=RMSE,col=method,hjust=0))+
-  facet_wrap(~storm,ncol=2)
-ggmsw
+
+ggmswall/ggmswcat/ggmswstorm+plot_layout(heights = c(1,3,4))
 ```
 
-The above graphic represents the drop sonde comparisons for the raster products of about 40 storms since 2016, each at 5 km spatial resolution and 10 min temporal resolution. Although each storm will be different, overall the TPS method outperforms the other models in terms of the root mean square error (RMSE). Most of the error for all methods stems from sonde locations in the eye-wall, where wind dynamics can change drastically over relatively small distances. Future comparison will also incoporate [SAR wind measurements](https://www.star.nesdis.noaa.gov/socd/mecb/sar/sarwinds_tropical.php). 
+The above graphic represents the drop sonde wind speed comparisons for the raster products of about 40 storms since 2016, each at 5 km spatial resolution and 10 min temporal resolution. Although each storm will be different, overall the TPS method outperforms the other models in terms of the root mean square error (RMSE) and the Root Median Square Error, although the difference is modest. Most of the error for all methods stems from sonde locations in the eye-wall, where wind dynamics can change drastically over relatively small distances. Future comparison will also incoporate [SAR wind measurements](https://www.star.nesdis.noaa.gov/socd/mecb/sar/sarwinds_tropical.php). 
 
-```{r compare_winds2,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=11,fig.cap="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile."}
+Below are the same comparisons for wind speed. Wind speed may be an important factor for some, especially when considering wind flow over topography and the differential impacts observed on landscapes corresponding to windward, leeward, peaks and valleys. Thus, accuracy is important. The Holland and Willoughby methods employ the same calculation, as can be seen by their identical results. Boose and TPS apply similar methods akin to a spiral tangent, however Boose makes changes depending if the storm is over land or water. In any case, the comparisons are fairly similar and its not clear if there is an objective best. 
 
-ggdir <- ggplot(comps_r_filt|>filter(var=="windir.deg",ZW.m<10)) +
-  geom_point(aes(x=WD,y=value,col=storm))+
+```{r compare_winds2,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=4,fig.cap="Fig 6. Comparisons with drop sonde data, similar to the presented in Fig. 5, but this time for wind direction.  In this case there is no clear best option. Future work may examine the reasons for the observed deviations and attempt to employ a different method."}
+
+ggdirall<- ggplot(comps_r_filt|>filter(var=="windir.deg")|>mutate(storm=factor(storm))) +
+  geom_point(aes(x=WD,y=value,col=as.factor(Cat)))+
   geom_abline(slope=1,intercept=0,lty=2)+
-  #stat_smooth(method='lm',aes(x=WD,y=value))+
-  xlab("Drop Sonde Wind Direction (deg.)")+
+  #stat_smooth(method='lm',formula="y~x+0",aes(x=WS.ms,y=value))+
+  xlab("Drop Sonde Wind Direction (deg)")+
   ylab("Modeled Wind Direction (deg)")+
-  geom_text(data=comps_r_filt|>
+  geom_text(data=comps_r_filt|>filter(storm %in% storms)|>
               st_drop_geometry()|>
-              filter(var=="windir.deg",ZW.m<10) |>
+              filter(var=="windir.deg") |>
               group_by(method) |>
-              summarise(RMSE=paste0("RMSE:\n",round(sqrt(mean((value-WD)^2,na.rm=TRUE)),1)),
-                        WD=10,value=70),aes(x=WD,y=value,label=RMSE))+
+              summarise(RMSE=paste0("RMSE:",round(sqrt(mean((value-WD)^2,na.rm=TRUE)),1),
+                        "\nRMdSE: ",round(sqrt(median((value-WD)^2,na.rm=TRUE)),1)),
+                        WD=360,value=100)|>ungroup(),aes(x=WD,y=value,label=RMSE,hjust=0))+
   facet_grid(~method)+
-  theme(legend.position="none")
+  guides(col=guide_legend("Saffir-Simpson\nCategory"))+
+  theme_bw()+
+  theme(legend.position = "bottom")
 
-print(ggmsw/ggdir)
+print(ggdirall)
+```
+
+
+## Aggregate Winds 
+
+In many research cases, individual timesteps are not explicitly required, and instead only an aggregate representation of the entire storm is needed. Examples include the maximum sustained wind at any given point, or the duration of hurricane force winds. The below demonstrates this and it is important to point out that although the individual timesteps may not be desired, they are still important for the aggregate calculation. As such, their temporal resolution matters. Less frequent time steps may result in aggregate data that appears less smooth than that computed with higher frequency data. 
+
+
+```{r plotwinds_agg,eval=FALSE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=7,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
+
+winds_Camille <- get_wind(windextents$CAMILLE_1969_NA_1969226N18280,s_res=5000)
+## or with files already saved
+winds_Camille <- get_wind("CAMILLE1969_5000_30_WIND",sres=5000,todir="I:/Cyclone Products/Wind/v3_modeled/")
+
+### take only the msw (maximum sustained winds) layers 
+Cam_msw <- app(winds_Camille[[grepl("msw",names(winds_Camille))]],fun="max",na.rm=TRUE)
+terra::plot(Cam_msw,main="Hurricane Camille, 1969 - Maximum Sustained Winds (m/s)")
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_msw))),add=TRUE)
+
+##  additionally, we could take the sum of the total power dissipation
+##  Power was not available for Camille because no pressure field was available (without modeling)
+##  here, because there were multiple methods, we add a grouping step and we 'tapp()' instead of 'app()'
+#Sin_power <- winds_Sinlaku[[grepl("power",names(winds_Sinlaku))]]
+#methods <- unlist(sapply(strsplit(names(Sin_power),"_"),"[[",3))
+#Sin_power <- terra::tapp(Sin_power,index=methods,fun="sum",na.rm=TRUE)
+#terra::plot(Sin_power)
+#mtext("Power dissipation for Super Typhoon Sinlaku, 2026", side=3, line=-2, outer=TRUE, cex=1.5)
 ```

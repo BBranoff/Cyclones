@@ -278,6 +278,7 @@ $(document).ready(function () {
 either at specific times or as aggregate
 <ul>
 <li>Choose data sources and temporal and spatial resolutions</li>
+<li>Compare calculated winds against Hurricane Hunter dropsondes</li>
 </ul></li>
 </ul>
 </div>
@@ -403,7 +404,7 @@ windextents &lt;- lapply(storms,make_extents,t_res=60)</code></pre>
 <p>These spatial features can also be good for certain storm
 visualizations in which a fully gridded raster is not necessary.</p>
 <div class="figure">
-<img src="index_files/figure-html/plot-extents-1.png" alt="Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in 'make_extents()', there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map." width="672" />
+<img src="index_files/figure-html/plot-extents-1.png" alt="Fig 1A. The results of make_extents() are storm tracks, as well as outer limits of various wind and pressure values. If t_res was utilized, interpolated features are also created to fill in the missing times. Additionally, the 'mods' argument can be used to model wind and pressure values that are missing, which is usually the case for older storms or sometimes for storms outside of USA jurisdiction. In this case, an older storm (Camille) has very little native information and because modeling was not utilized in 'make_extents()', there are no wind or pressure extents. Sinlaku, however, as a modern storm over US interests (Mariana Islands), contains more native data and thus more features to map. Examples of modeled extents are shown in the 'Winds' vignette." width="864" />
 <p class="caption">
 Fig 1A. The results of make_extents() are storm tracks, as well as outer
 limits of various wind and pressure values. If t_res was utilized,
@@ -415,9 +416,10 @@ storm (Camille) has very little native information and because modeling
 was not utilized in ‘make_extents()’, there are no wind or pressure
 extents. Sinlaku, however, as a modern storm over US interests (Mariana
 Islands), contains more native data and thus more features to map.
+Examples of modeled extents are shown in the ‘Winds’ vignette.
 </p>
 </div>
-<div class="figure">
+<div class="figure" style="text-align: left">
 <img src="index_files/figure-html/plot-extents2-1.png" alt="Fig 1B. The results of make_extents() zoomedin, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." width="672" />
 <p class="caption">
 Fig 1B. The results of make_extents() zoomedin, separated by native
@@ -456,8 +458,8 @@ winds &lt;- lapply(windextents,get_wind,methods=c(&quot;all&quot;))
 ###  they can stay like this or we can combine everything
 winds_Camille &lt;- rast(winds_Camille)
 winds_Sinlaku &lt;- rast(winds_Sinlaku)</code></pre>
-<div class="figure">
-<img src="index_files/figure-html/plotwinds1-1.png" alt="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'winds' vignette." width="672" />
+<div class="figure" style="text-align: left">
+<img src="index_files/figure-html/plotwinds1-1.png" alt="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette." width="864" />
 <p class="caption">
 Fig 2. The results of get_wind() are rasters for each timestep and at
 the desired spatial resolution (default in this case is 20km). This is
@@ -470,7 +472,7 @@ the necessary data for TPS calculation, it is still missing many of the
 extents when compard to North Atlantic storms. Thus, without using the
 ‘mods’ argument in make_extents(), TPS values may not accurately
 represent the wind extents. A more in-depth exploration of this is given
-in the ‘winds’ vignette.
+in the ‘Winds’ vignette.
 </p>
 </div>
 <p>It may also be desired to obtain an aggregate summary of a storm,
@@ -479,7 +481,7 @@ via the terra package’s ‘app’ functionality. In this case, we simply
 take the maximum to determine the maximum sustained wind at any given
 point during the duration of the storm, or the sum to get the total
 power dissipation at any given point.</p>
-<div class="figure">
+<div class="figure" style="text-align: left">
 <img src="index_files/figure-html/plotwinds_agg-1.png" alt="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming." width="672" />
 <p class="caption">
 Fig 3. Aggregating the individual time step layers from get_wind()
@@ -543,7 +545,7 @@ precip_Sinlaku &lt;- list(precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2
 ##  plotting random times in base plot
 plot(precip_Camille[[100:102]])
 ##  ggplot gives more funcitonality
-PrecipsCamille_df &lt;- as.data.frame(precip_Camille[[100:102]],xy=TRUE)
+PrecipsCamille_df &lt;- as.data.frame(project(precip_Camille[[100:102]],&#39;epsg:4326&#39;),xy=TRUE)
 names(PrecipsCamille_df)[-c(1,2)] &lt;- paste(names(PrecipsCamille_df)[-c(1,2)],time(precip_Camille[[100:102]]),sep=&quot;_&quot;)
 PrecipsCamille_df &lt;-PrecipsCamille_df |&gt;
    tidyr::pivot_longer(cols=-c(x,y),names_sep = &quot;_&quot;,names_to = c(&quot;method&quot;,&quot;unit&quot;,&quot;source&quot;,&quot;time&quot;))
@@ -562,12 +564,33 @@ ggplot(data=PrecipsCamille_df) +
 
 ###  same code for Sinlaku not shown</code></pre>
 <div class="figure">
-<img src="index_files/figure-html/plot_precip-1.png" alt="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998." width="672" />
+<img src="index_files/figure-html/plot_precip-1.png" alt="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998." width="864" />
 <p class="caption">
 Fig 4. Results of get_precip() are time series rasters of precipitation
 in the desired spatial resolution. In this case, no resolution was
 requested, so the native resolution is returned. MSWEP data is only
 available after 1979 and GPM data fter 1998.
+</p>
+</div>
+<p>Just as for the wind products, precipitation can also be aggregated
+to provide a summary of the entire storm. Of particular interest for
+rain is the total accumulation, and perhaps the mean rainfall rate.
+Although not shown here, pre-storm precipitation associated with
+potential ‘precursor rain events’ might also be included in such an
+aggregation. See the <a
+href="https://bbranoff.github.io/Cyclones/Rains.html">Rains</a> vignette
+for more details.</p>
+<pre class="r"><code>### use the &#39;app()&#39; function from terra to sum across the timesteps
+Cam_precip &lt;- app(precip_Camille,fun=&quot;sum&quot;,na.rm=TRUE)
+terra::plot(Cam_precip,main=&quot;Hurricane Camille, 1969 - Total Rainfall (mm)&quot;)
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_precip))),add=TRUE)</code></pre>
+<div class="figure" style="text-align: left">
+<img src="index_files/figure-html/plotrain_agg-1.png" alt="Fig 5. Aggregating the individual time step layers from get_precip() produces a whole-storm perspective. In this case, the total accumulated rainfall. Aggregating can also include prestorm precipitation if available." width="672" />
+<p class="caption">
+Fig 5. Aggregating the individual time step layers from get_precip()
+produces a whole-storm perspective. In this case, the total accumulated
+rainfall. Aggregating can also include prestorm precipitation if
+available.
 </p>
 </div>
 </div>
@@ -636,21 +659,6 @@ km.</p>
 
 ### as with the other functions, dpath will save component data in a directory for direct future access (no download necessary)
 surge_Camille &lt;- get_surge(storms$CAMILLE_1969_NA_1969226N18280,dpath=&quot;./Storm Surge/&quot;)
-surge_Sinlaku &lt;- get_surge(storms$SINLAKU_2026_WP_2026099N09152,dpath=&quot;./Storm Surge/&quot;)
-
-
-ggplot(data=as.data.frame(surge_Sinlaku$rast,xy=TRUE)|&gt;rename(value=3)|&gt;
-         filter(x&lt;146,x&gt;145,y&lt;15.5,y&gt;14)) +
-  geom_raster(aes(x=x,y=y,fill=value))+
-  scale_fill_viridis_c(n=10,na.value = &quot;transparent&quot;,name=&quot;Surge level\nabove MHHW\n(m)&quot;)+
-  coord_sf(crs =&quot;+proj=robin +lon_0=180&quot;)+
-  theme_bw()+
-  geom_sf(data=st_as_sf(surge_Sinlaku$points,coords=c(&quot;lon&quot;,&quot;lat&quot;),crs=4326),aes(col=source))+
-  #geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(windsSinmsw)),
-  #             aes(label = admin), size = 3, check_overlap = TRUE) +
-  ggtitle(&quot;Typhoon Sinlaku Storm Surge at Northern Mariana Islands&quot;)+
-  xlim(145,146)+ylim(14,15.5)+
-  theme(axis.title = element_blank(),panel.grid=element_blank())
 
 ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),xy=TRUE)|&gt;rename(value=3)) +
   geom_raster(aes(x=x,y=y,fill=value))+
@@ -665,20 +673,28 @@ ggplot(data=as.data.frame(crop(surge_Camille$rast,ext(c(-93,-83,28,32))),xy=TRUE
   xlim(-93,-83)+ylim(28,32)+
   theme(axis.title = element_blank(),panel.grid=element_blank())</code></pre>
 <div class="figure">
-<img src="index_files/figure-html/plot_surge-1.png" alt="Fig 5. Results of get_surge() are a single layer only, representing the maximum surge depth above ground for each location during the storm, as well as a corresponding summary table of water level observations. Surge depth is a simple difference between a nearby water level observation and the ground elevation. Only depths greater than the mean high high tide are returned. For storms outside of United States jurisdictions, and for any storm before 2000, water level observations are scarce and the CMIP6 model is usually used instead. This model is known to underestimate extreme surge values. Water level sources can be viewed via the corresponding table produced for each storm." width="672" />
+<img src="index_files/figure-html/plot_surge-1.png" alt="Fig 6. Results of get_surge() are a single layer only, representing the maximum surge depth above ground for each location during the storm, as well as a corresponding summary table of water level observations. Surge depth is a simple difference between an interpolation of nearby water level observations and the ground elevation. Only depths greater than the mean high high tide are returned. For storms outside of United States jurisdictions, and for any storm before 2000, water level observations are scarce and the CMIP6 model is usually used instead. This model is known to underestimate extreme surge values. Water level sources can be viewed via the corresponding table produced for each storm (below)." width="672" />
 <p class="caption">
-Fig 5. Results of get_surge() are a single layer only, representing the
+Fig 6. Results of get_surge() are a single layer only, representing the
 maximum surge depth above ground for each location during the storm, as
 well as a corresponding summary table of water level observations. Surge
-depth is a simple difference between a nearby water level observation
-and the ground elevation. Only depths greater than the mean high high
-tide are returned. For storms outside of United States jurisdictions,
-and for any storm before 2000, water level observations are scarce and
-the CMIP6 model is usually used instead. This model is known to
-underestimate extreme surge values. Water level sources can be viewed
-via the corresponding table produced for each storm.
+depth is a simple difference between an interpolation of nearby water
+level observations and the ground elevation. Only depths greater than
+the mean high high tide are returned. For storms outside of United
+States jurisdictions, and for any storm before 2000, water level
+observations are scarce and the CMIP6 model is usually used instead.
+This model is known to underestimate extreme surge values. Water level
+sources can be viewed via the corresponding table produced for each
+storm (below).
 </p>
 </div>
+<pre><code>##   maxWL    HT source station_id      rastsource     lon    lat
+## 1 0.268 0.109  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -85.825 16.509
+## 2 0.243 0.154  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -76.714 18.267
+## 3 0.232 0.151  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -76.304 18.091
+## 4 0.212 0.138  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -76.421 17.856
+## 5 0.224 0.138  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -76.831 17.944
+## 6 0.267 0.125  cmip6       &lt;NA&gt; usgs&amp;noaa&amp;cmip6 -81.108 19.351</code></pre>
 </div>
 
 
