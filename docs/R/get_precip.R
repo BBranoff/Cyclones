@@ -75,11 +75,12 @@
 get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_res=NULL,prestorm=NULL,
                        agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=FALSE){
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(storm)[1]=="character"){ return(load_precip(storm,todir,loadrasts))
-  #############
+  if (class(storm)[1]=="character"){ return(deliver_precip(precips_all=NULL,cent=storm,todir=todir,source=NULL,overwrite=NULL,loadrsts=loadrasts,cpus=NULL,ex_parallel=NULL))}
+  #############  precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel
   ###  checks and initiate variables
   ###########
   ##  check for internal parallelization
+
   parallel <- !is.null(cpus)
   ##  check for external parallelization
   ex_parallel <- any(unlist(lapply(sys.calls(), function(cal) {
@@ -95,7 +96,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
   else if(!is.null(prestorm)&&!all(is.numeric(prestorm))) stop("pre storm hours format must be either TRUE or numeric for number of hours before storm.")
   else if(any(prestorm/24 > 7)) warning("pre storm hours exceeds 7 days, expect long data download period.")
 
-  }else if (class(storm)[1]%in% c("vctrs_list_of","list","tbl_df","sf")){
+  if (class(storm)[1]%in% c("vctrs_list_of","list","tbl_df","sf")){
     ###  this must be done before the directory/file check
     ###  if multiple storms are passed to the function,
     if (is.null(dim(storm))){
@@ -230,7 +231,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
     precips=append(precips,list(precip))
     cat("\n")
   }
-  names(precips) <- paste(unique(centers$ID[!is.na(centers$ID)]),"precip",tolower(sources),sep="_")
+  names(precips) <- tolower(sources)
   precips
 }
 parallelprecip <- function(cents,source,r,dpath=NULL,pre_storm,cpus) {
@@ -430,6 +431,44 @@ pre_sub_precips <- function(prcips,stormpoints,prehours,cpus=NULL){
 }
 
 deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel){
+  if (class(cent)[1]=="character"){
+    if (is.null(todir)){
+      todir=getwd()
+    }
+    outall <- list()
+    ###  probably need to check if the same method is duplicated
+    for (s in cent){
+      meths <- list.dirs(paste0(todir,"/",s,"/"))[-1]
+      precips = list.files(paste0(todir,"/",s,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+      if (length(precips)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
+      out <- list()
+      for (m in meths){
+        cat(paste0("\rLoading ",s," from file: %",round(100*(which(meths==m)/(length(meths))))))
+        precips = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
+        if (length(precips)>0){
+          #nmes <- gsub(".tif","",basename(precips))
+          storm = grep("prestorm",precips,invert=TRUE,value=TRUE)
+          if (any(grepl("prestorm",precips))){
+            prestorm = grep("prestorm",precips,value=TRUE)
+            pretimes <- unique(sapply(strsplit(prestorm,"_"),"[[",10))
+            prestorm = setNames(lapply(pretimes,function(x) grep(x,prestorm,value=TRUE)),paste0("prestorm_precip_",pretimes))
+          }else{
+            prestorm=NULL
+          }
+          if (loadrsts){
+            storm = rast(storm)
+            prestorm <- lapply(prestorm,rast)
+          }
+          out <- append(out,list(list(storm=storm,prestorm=prestorm)))
+        }
+      }
+      cat("\n")
+      names(out) <- basename(meths)
+      outall <- append(outall,out)
+    }
+   return(outall)
+  }
+  if(is.null(precips_all)) return(NULL)
   ###  some requests get a full day at a time, trim the end days to drop times when the storm is non-existent
   if (any(terra::time(precips_all)>=unique(cent$minstormdate))){
     precips_storm <- precips_all[[terra::time(precips_all) %in% (cent|>filter(date>=unique(minstormdate))|>pull(date))]]
@@ -480,33 +519,7 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
   }
   else return(Filter(Negate(is.null),c(tofiles,unlist(prefiles))))
 }
+
 load_precip <- function(storm,todir,loadrasts){
-  if (is.null(todir)){
-    todir=getwd()
-  }
-  meths <- list.dirs(paste0(todir,"/",storm,"/"))[-1]
-  precips = list.files(paste0(todir,"/",storm,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
-  if (length(precips)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
-  out <- list()
-  for (m in meths){
-    precips = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
-    if (length(precips)>0){
-      #nmes <- gsub(".tif","",basename(precips))
-      storm = grep("prestorm",precips,invert=TRUE,value=TRUE)
-      if (any(grepl("prestorm",precips))){
-        prestorm = grep("prestorm",precips,value=TRUE)
-        pretimes <- unique(sapply(strsplit(prestorm,"_"),"[[",10))
-        prestorm = setNames(lapply(pretimes,function(x) grep(x,prestorm,value=TRUE)),paste0("prestorm_precip_",pretimes))
-      }else{
-        prestorm=NULL
-      }
-      if (loadrasts){
-        storm = rast(storm)
-        prestorm <- lapply(prestorm,rast)
-      }
-      out <- append(out,list(list(storm=storm,prestorm=prestorm)))
-    }
-  }
-  names(out) <- basename(meths)
-  return(out)#setNames(list(out),paste(strsplit(precips[[1]],"_")[[1]][c(5:8)],collapse ="_")))
+
 }

@@ -24,6 +24,8 @@ of maximum wind that are greater than extents of lower wind speeds, or minimum c
 \item{type}{the desired class of output sf object, either 'linestrings','polygons', or 'all'.}
 
 \item{t_res}{the desired temporal resolution of the output features, in minutes.}
+
+\item{cpus}{for internal parallelization. Currently not functional as parallel not faster for make_extents().}
 }
 \value{
 Simple features geometry collection containing time stamped storm tracks and either linestrings, polygons, or both representing the maximum extent

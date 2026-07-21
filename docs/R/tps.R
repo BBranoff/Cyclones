@@ -113,11 +113,11 @@ tps_interpolate <- function(line,center,r,eye_opt){
   ###   Using the original ROCI can create extreme and unnatural shifts in wind Velocity with the thin spline method
   ###   to avoid this, bump the 0 velocity line out a bit further
   ###   we will still zero out the original ROCI later, this is only for the thine spline interpolation
-  #sf::st_agr(outer) <- "constant"  ##  to avoid sf warning about repeating sub geometries
+  sf::st_agr(line) <- "constant"  ##  to avoid sf warning about repeating sub geometries
   line <- bind_rows(line,
-                    suppressWarnings(line|>filter(location=="track points")|>
+                    line|>filter(location=="track points")|>
                                        mutate(geometry=st_buffer(geometry,dist=roci.m*1.1),location="ROCI2",dist.m=roci.m*.1,kts=0)
-                                     |>st_cast("LINESTRING")))
+                                     |>st_cast("LINESTRING"))
   ##  cropping will chage extent relative to other methods
   ##  but necessary to avoid way to long processing times for interpolating empty space
   ##  results are reprojected back to original r afterwards
@@ -163,17 +163,20 @@ tps_interpolate <- function(line,center,r,eye_opt){
     ###  the normal extents
   #  line|>filter(!location %in%c("ROCI","track","track points")),
   #  r, "kts",touches=T,fun="mean")
-  rP <-  rasterize(bind_rows(line|>filter(!location %in% c("ROCI","ROCI avg.","track","track points")),
-                             st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r_cr, "P",touches=T)
+  ###  no need to do pressure if assuming constant density
+
+  #rP <-  rasterize(bind_rows(line|>filter(!location %in% c("ROCI","ROCI avg.","track","track points")),
+  #                           st_buffer(line[line$location=="track points",],1)|>mutate(P=center$minpress.mb)|>st_cast("LINESTRING")), r_cr, "P",touches=T)
+
   ###  convert the xyz values to a dataframe for thin spline interpolation
   xyv <- as.data.frame(rv, xy=T,na.rm=F)
-  xyP <- as.data.frame(rP, xy=T,na.rm=F)
+  #xyP <- as.data.frame(rP, xy=T,na.rm=F)
   options(warn = -1)
   ###  fit the thin spline interpolation model
   tps_v <- Tps(xyv[,1:2], xyv[,3])
   #ftps_v <- fastTps(xyv[,1:2], xyv[,3],aRange=1)
-  if (!any(is.na(xyP$P))) tps_P <-  Tps(xyP[,1:2], xyP[,3])
-  else tps_P <- NULL
+  #if (!any(is.na(xyP$P))) tps_P <-  Tps(xyP[,1:2], xyP[,3])
+  #else tps_P <- NULL
   ###  use the model to predict the unknown wind speeds
   p_v <- interpolate(r_cr, tps_v)
   if ("eye" %in% line$location&&eye_opt=="given") {
@@ -258,9 +261,12 @@ tps_interpolate <- function(line,center,r,eye_opt){
   #p_v[p_v==-999] <- sample(seq(from=1.1,to=9.9,b=0.1), size=length(p_v[p_v==-999]), replace=TRUE)
   #  names(p_v) <- "lyr.1"
   #}
-
-
-  windir <- get_dir(p_v,center)
+  #DirRas <- rotate(project(p_v,"epsg:4326"))
+  DirRas <- project(p_v,"epsg:4326")
+  crds <- terra::crds(DirRas, na.rm = FALSE)
+  windir <- get_dir(crds[,1], crds[,2], st_coordinates(st_transform(line|>filter(location=="track points"),4326)),landIntersect=NULL,DirRas,meth="tps")
+  windir <- project(windir,p_v)
+  #windir <- get_dir_old(p_v,center)
 
   ##  to calculate power:
   ###  the density of air is a conversion function of the pressure
@@ -268,21 +274,22 @@ tps_interpolate <- function(line,center,r,eye_opt){
 
   ##  power is then a function of the density and the pressure
   ##  https://www.e-education.psu.edu/emsc297/node/649
-  if (!is.null(tps_P)){
-    p_P <- interpolate(r_cr, tps_P)
-    p_P <- terra::clamp(p_P,lower=min(line$minpress.mb,na.rm=T),upper=max(line$maxpress.mb,na.rm=T))
-    dens <- p_P*100/(287.058*298)
-    kW <- as.numeric(center$dt)*(0.5*dens*1*(p_v)^3)/1000
-    kW[is.na(kW)] <- 0
-  } else{
-    kW <- setValues(p_v,NA)
-  }
+  #if (!is.null(tps_P)){
+  #  p_P <- interpolate(r_cr, tps_P)
+  #  p_P <- terra::clamp(p_P,lower=min(line$minpress.mb,na.rm=T),upper=max(line$maxpress.mb,na.rm=T))
+  #  dens <- p_P*100/(287.058*298)
+  #} else{
+  #  kW <- setValues(p_v,NA)
+  #}
   ###  here, wind velocity in knots is converted to m/s
   p_v <- p_v/1.94384
+  ###  must be done after the conversion
+  kW <- as.numeric(center$dt)*(0.5*1.15*1*(p_v)^3)/1000
+  kW[is.na(kW)] <- 0
   terra::units(p_v) <- "m/s"
-  terra::units(kW) <- "kW"
+  terra::units(kW) <- "kWh"
   terra::units(windir) <- "deg"
   ##  and everything is converted from Watts to kWh by multiplying by the time duration
   ## we are calculating the power on 1 square meter of a surface for the duration of the current segment
-  rast(list(power.kW=kW,msw.ms=p_v,windir.deg=windir))
+  rast(list(power.kWh=kW,msw.ms=p_v,windir.deg=windir))
 }

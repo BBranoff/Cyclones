@@ -363,8 +363,10 @@ precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HEL
 str(precip)
 ###  results are broken down by storm ID, source, and also storm and pre-storm precipitation (if desired)
 ###  Because we&#39;ve chosen modern storms, all sources are available</code></pre>
+<pre><code>## Loading FRANCES2004_10000_30_PRECIP from file: %33Loading FRANCES2004_10000_30_PRECIP from file: %67Loading FRANCES2004_10000_30_PRECIP from file: %100
+## Loading HELENE2024_10000_30_PRECIP from file: %33Loading HELENE2024_10000_30_PRECIP from file: %67Loading HELENE2024_10000_30_PRECIP from file: %100</code></pre>
 <pre><code>## List of 2
-##  $ FRANCES2004:List of 3
+##  $ FRANCES_2004_NA_2004238N11325:List of 3
 ##   ..$ ecmwf:List of 2
 ##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
 ##   .. ..$ prestorm:List of 2
@@ -380,7 +382,7 @@ str(precip)
 ##   .. ..$ prestorm:List of 2
 ##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
 ##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
-##  $ HELENE2024 :List of 3
+##  $ HELENE_2024_NA_2024268N17278 :List of 3
 ##   ..$ ecmwf:List of 2
 ##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
 ##   .. ..$ prestorm:List of 2
@@ -406,7 +408,7 @@ projection and at the desired 10km spatial resolution. Sources show that
 the images were (or were not) loaded from specific files, and the time
 and units are also shown.</p>
 <pre class="r"><code>###  showing one set of raster stacks
-precip$HELENE2024$ecmwf$storm</code></pre>
+precip$HELENE_2024_NA_2024268N17278$ecmwf$storm</code></pre>
 <pre><code>## class       : SpatRaster 
 ## size        : 342, 166, 246  (nrow, ncol, nlyr)
 ## resolution  : 10000, 10000  (x, y)
@@ -430,70 +432,67 @@ silent. Other parallel libraries should also be capable of this, but
 they have not been tested extensively.</p>
 <pre class="r"><code>##  initiate parallel
 ##  in this simple case just our two storms, so only 2 cpus necessary
-sfInit(parallel=TRUE,cpus=2)
-##  must import the libraries to the workers
-##  this should be covered by exporting only Cyclones, but just in case
-sfLibrary(terra)
-sfLibrary(sf)
-sfLibrary(dplyr)
-sfLibrary(Cyclones)
-##  here, we remove the cpus call in get_precip to avoid running nested parallel processes
-precip_par &lt;- sfLapply(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,sources=&quot;ecmwf&quot;,prestorm=TRUE,t_res=30,s_res=10000)
+initiatepar(cpus=2,type=&quot;precip&quot;)
+##  sfClusterApplyLB is quicker but may jumble the order of the storms. It will also drop the names of the original list
+##  use sfLapply to for slightly slower but same storm order and maintains names
+precip_par &lt;- sfClusterApplyLB(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,sources=&quot;ecmwf&quot;,prestorm=TRUE,t_res=30,s_res=10000)
+sfStop()
+names(precip_par) &lt;- names(storms)
 ##  remember to close the worker nodes
 sfStop()
 precip_par</code></pre>
-<pre><code>## $FRANCES2004.ecmwf.storm
+<pre><code>## $FRANCES_2004_NA_2004238N11325.ecmwf.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.ecmwf.prestorm.prestorm_precip_24hrs
+## $FRANCES_2004_NA_2004238N11325.ecmwf.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.ecmwf.prestorm.prestorm_precip_48hrs
+## $FRANCES_2004_NA_2004238N11325.ecmwf.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.gpm.storm
+## $FRANCES_2004_NA_2004238N11325.gpm.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.gpm.prestorm.prestorm_precip_24hrs
+## $FRANCES_2004_NA_2004238N11325.gpm.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.gpm.prestorm.prestorm_precip_48hrs
+## $FRANCES_2004_NA_2004238N11325.gpm.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.mswep.storm
+## $FRANCES_2004_NA_2004238N11325.mswep.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.mswep.prestorm.prestorm_precip_24hrs
+## $FRANCES_2004_NA_2004238N11325.mswep.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $FRANCES2004.mswep.prestorm.prestorm_precip_48hrs
+## $FRANCES_2004_NA_2004238N11325.mswep.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.ecmwf.storm
+## $HELENE_2024_NA_2024268N17278.ecmwf.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.ecmwf.prestorm.prestorm_precip_24hrs
+## $HELENE_2024_NA_2024268N17278.ecmwf.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.ecmwf.prestorm.prestorm_precip_48hrs
+## $HELENE_2024_NA_2024268N17278.ecmwf.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.gpm.storm
+## $HELENE_2024_NA_2024268N17278.gpm.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.gpm.prestorm.prestorm_precip_24hrs
+## $HELENE_2024_NA_2024268N17278.gpm.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.gpm.prestorm.prestorm_precip_48hrs
+## $HELENE_2024_NA_2024268N17278.gpm.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.mswep.storm
+## $HELENE_2024_NA_2024268N17278.mswep.storm
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.mswep.prestorm.prestorm_precip_24hrs
+## $HELENE_2024_NA_2024268N17278.mswep.prestorm.prestorm_precip_24hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
 ## 
-## $HELENE2024.mswep.prestorm.prestorm_precip_48hrs
+## $HELENE_2024_NA_2024268N17278.mswep.prestorm.prestorm_precip_48hrs
 ## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;</code></pre>
 <p>In the above output, note that the products are wrapped (packed)
 because the parent call was in parallel and we did not supply a ‘todir’.
@@ -503,7 +502,6 @@ alternative would be to save the products via ‘todir’ and then load them
 again via the above outlined process.</p>
 <pre class="r"><code>##  unwrap the packed raster products from a parallel call
 ##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
-
 precip &lt;- rapply(precip_par, unwrap)</code></pre>
 <p>With the precipitation products processed, we can examine the
 results. To aid in comparing sources and time periods, this is
@@ -511,10 +509,11 @@ demonstrated via ggplot, which requires some manipulation of the raster
 images into data frames. But base plot can also easily be used to
 visualize the raster products.</p>
 <pre class="r"><code>###  read in the files saved to disk
-precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE2024=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;I:/Cyclone Products/Precip&quot;,loadrasts = TRUE)
-
-###  convert to data frame, this time only for FRANCES
-r_df &lt;- rapply(precip$FRANCES2004,function(r){
+precip &lt;- lapply(list(FRANCES_2004_NA_2004238N11325=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE_2024_NA_2024268N17278=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;I:/Cyclone Products/Precip&quot;,loadrasts = TRUE)</code></pre>
+<pre><code>## Loading FRANCES2004_10000_30_PRECIP from file: %33Loading FRANCES2004_10000_30_PRECIP from file: %67Loading FRANCES2004_10000_30_PRECIP from file: %100
+## Loading HELENE2024_10000_30_PRECIP from file: %33Loading HELENE2024_10000_30_PRECIP from file: %67Loading HELENE2024_10000_30_PRECIP from file: %100</code></pre>
+<pre class="r"><code>###  convert to data frame, this time only for FRANCES
+r_df &lt;- rapply(precip$FRANCES_2004_NA_2004238N11325,function(r){
   as.data.frame(project(r[[time(r)==as.POSIXct(&quot;2004-09-04 01:00&quot;)]],&quot;epsg:4326&quot;),xy=TRUE)|&gt;
     tidyr::pivot_longer(cols=3,names_to=&quot;layer&quot;)
   }, how=&quot;list&quot;)
@@ -564,7 +563,7 @@ aggregate layers. In this case, we demonstrate the total accumulated
 precipitation by summing all layers, but any number of custom functions
 could be used.</p>
 <pre class="r"><code>###  apply the &#39;app()&#39; function and reproject (for easier plotting) over all rasters in the list
-agg_df &lt;- rapply(precip$HELENE2024,function(r){
+agg_df &lt;- rapply(precip$HELENE_2024_NA_2024268N17278,function(r){
   as.data.frame(project(app(r,fun=&quot;sum&quot;,na.rm=TRUE),&quot;epsg:4326&quot;),xy=TRUE)|&gt;
     mutate(method=unique(strsplit(names(r),&quot;_&quot;)[[1]][1]),
            period=gsub(&quot;/0.5hr&quot;,&quot;&quot;,unique(strsplit(names(r),&quot;_&quot;)[[1]][2])))

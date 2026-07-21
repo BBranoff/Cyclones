@@ -16,7 +16,6 @@ Imports:
     earthdatalogin,
     ecmwfr,
     fields,
-    geosphere,
     googledrive,
     methods,
     purrr,

@@ -1,10 +1,11 @@
+#' @importFrom terra as.polygons
+#' @importFrom sf st_area
 interp_rast <- function(r,track,parallel){
 
   ###  this might work across the entire stack, instead of step wise
   # app(r, fun = function(x) {
   #zoo::na.approx(x, maxgap = 2, na.rm = FALSE)
   #})
-
 
   r <- lapply(r,function(x){
     if (class(x)=="character") rast(x)#terra::split(trim(rast(x)),1:nlyr(rast(x)))
@@ -34,8 +35,8 @@ interp_func <- function(x,rtrim,track){
   track1 <- track|>filter(date==t1,location=="track points")
   track2 <- track|>filter(date==t2,location=="track points")
   ##  to get the rocis
-  bounds1 <- st_as_sf(as.polygons(classify(r1[[1]], cbind(floor(minmax(r1[[1]])[1]), Inf, 1)), dissolve = TRUE))
-  bounds2 <- st_as_sf(as.polygons(classify(r2[[1]], cbind(floor(minmax(r2[[1]])[1]), Inf, 1)), dissolve = TRUE))
+  bounds1 <- st_as_sf(as.polygons(classify(r1[[1]], cbind(floor(minmax(r1[[1]])[1]), Inf, 1),include.lowest=TRUE), dissolve = TRUE))
+  bounds2 <- st_as_sf(as.polygons(classify(r2[[1]], cbind(floor(minmax(r2[[1]])[1]), Inf, 1),include.lowest=TRUE), dissolve = TRUE))
   custCRS <- paste0("+proj=laea +x_0=0 +y_0=0 +lon_0=",
                     st_coordinates(track1 |>st_transform(4326))[,"X"],
                     " +lat_0=",

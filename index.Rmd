@@ -9,7 +9,7 @@ to the reasoning behind the methods and the final products.
 # Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions
-  * Compare calculated winds against Hurricane Hunter dropsondes
+  * Compare calculated winds against hurricane hunter dropsondes
   
 # Future Implementation Ideas
 * Integrate NISAR data for:
@@ -20,11 +20,12 @@ to the reasoning behind the methods and the final products.
 * Integrate LANDSAT for NDVI
 * Integrate available LiDAR or NAIP clouds for canopy structure
 * Integrate SLOSH for storm surge
+* Integrate aspect relative incident wind direction / exposure index
 
 # Introduction
 R utilities for producing variable temporal and spatial resolution gridded and time-stacked representations of tropical cyclone wind, precipitation, and storm surge.
 
-A note on lists, rasters, wrapping, and parallelization. Most of the functions in 'Cyclones' produce and operate over lists, primarily because they work nicely with lapply() and its parallel equivalents. This makes it relatively easy to process multiple storms in parallel or to process a single storm in parallel. However, raster data via 'terra' can not be passed across parallel workers unless they are wrapped. Thus, for now, the raster products in Cyclones will always be wrapped and must first be unwrapped before they can be utilized in traditional workflows.  
+A note on lists, rasters, wrapping, and parallelization. Most of the functions in 'Cyclones' produce and operate over lists, primarily because they work nicely with lapply() and its parallel equivalents. This makes it relatively easy to process multiple storms in parallel or to process a single storm in parallel. However, raster data via 'terra' can not be passed across parallel workers unless they are wrapped. Thus, for now, the raster products in Cyclones will sometimes be wrapped and must first be unwrapped before they can be utilized in traditional workflows.  
 
 Parallel processing is mostly only necessary for multiple storms or for high resolution outputs and we recommend users familiarize themselves with the sequential default functions and only then utilize parallel when ready for batch processing. For internal functions, parallelism is done via snowfall at the timestep level. This is best for high resolution (both temporal (\<15 mins) and/or spatial (\<10000 m)) outputs and especially when producing Thin Plate Spline (TPS) outputs, and is probably best utilized if at least 5-10 cpus could be set aside for the effort, but there hasnt been any in-depth test of performance yet. Parallelizing at the storm level is demonstrated below in snowfall, but could be done with other libraries at the user's discretion and also could be done with only a few (\<5) cpus. The functions will not allow you to do both internal and external parallelization, but otherwise, the user is expected to know how many cpus can be safely utilized on their system.
 
@@ -59,8 +60,12 @@ library(Cyclones)
 ##  storms can be singular or plural and can be identified specifically, or not
 ##  HURDAT data are relatively limited compared to IBTrACS and may not have full
 ##  functionality for wind products, but should be sufficient for precipitation and storm surge.
+##  extend timeout if download taking too long
+##  options(timeout=300)
 storms <- get_storms(source="hurdat",name="Camille",basin="NA",season=1969)
 storms <- get_storms(name=c("Maria","IRMA"),basin="NA",season=2017)
+##  from file
+storms <- get_storms("./ibtracs.ALL.list.v04r01.csv",name=c("Maria","IRMA"),basin="NA",season=2017)
 names(storms)
 
 ##  alternatively, all of the data can be downloaded and filtered later
@@ -76,10 +81,10 @@ storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 names(storms)
 ```
 
-The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the other agency values will first be converted to "1 minute" intervals using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. 
+The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. Users can otherwise provide a preference agency (WMO, TOKYO, WELLINGTON etc.) to be considered priority. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the consolidation of agencies from different intervals will involve a conversion to the preference interval using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. It should be noted that most of Cyclones is currently built to ingest consolidated data, so choosing not to consolidate may impact downstream processing in unpredictable ways. 
 
 ## Make Wind Extent Spatial Features
-In some cases, it may be desired to produce simple spatial features of important storm extents, such as the radius of maximum wind, the eye wall diameter, or the radius of the last closed isobar (ROCI). The make_extents() function will do this utilizing the native data, which is typically in 3hr intervals. The function will also interpolate data to a greater frequency using the 't_res' argument, and can incorporate models via the 'mods' argument to fill in missing extents. See the 'Winds' vignette for more details. 
+In some cases, it may be desired to produce simple spatial features of important storm extents, such as the radius of maximum wind, the eye wall diameter, or the radius of the last closed isobar (ROCI). The make_extents() function will do this utilizing the native data, which is typically in 3hr intervals. The function will also interpolate data to a greater frequency using the 't_res' argument, and can incorporate models via the 'mods' argument to fill in missing extents. See the ['Winds' vignette](https://bbranoff.github.io/Cyclones/Winds.html) for more details. 
 
 ```{r false-windextents,eval=FALSE}
 ##  generate linestring (default) and polygon (optionally) wind extent features for each timestep 
@@ -87,7 +92,12 @@ In some cases, it may be desired to produce simple spatial features of important
 ##  only perform the action on the first storm
 windextents <- make_extents(storms,type=c("linestrings","polygons"))
 
-##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)
+##  if both geometry types were requested they can be directly accessed
+windextents$linestrings
+windextents$polygons
+
+##  To apply the function to all storms, use lapply
+##  parallel functionality demonstrated in the 'Winds" and 'Rains" vignettes
 ##  use the t_res parameter to adjust temporal resolution (in minutes)
 windextents <- lapply(storms,make_extents,t_res=60)
 
@@ -109,7 +119,7 @@ scale_color_gradientn(
     values = scales::rescale(c(64*0.514, 83*0.514, 96*0.514, 113*0.514,137*0.514)), # breakpoints in data space
     limits = c(0, 80))+
 ggtitle("Hurricane Camille - 1969")+
-theme_bw()+theme(legend.position="none")+
+theme_bw()+theme(legend.position="none",plot.title = element_text(vjust = -2))+
 coord_sf(crs = sf::st_crs(4326))+
 scale_x_continuous(limits=c(-95,-60),n.breaks = 4)+
 ylim(15,45)
@@ -123,7 +133,7 @@ scale_color_gradientn(
     values = scales::rescale(c(64, 83, 96, 113,137)), # breakpoints in data space
     limits = c(0, 150))+
 ggtitle("Typhoon Sinlaku - 2026")+
-theme_bw()+
+theme_bw()+theme(plot.title = element_text(vjust = -2))+
 coord_sf(crs = sf::st_crs(4326))+
   scale_x_continuous(limits=c(130,170),n.breaks=4)+
 ylim(0,40)
@@ -131,7 +141,7 @@ print(Cam+Sin)
 ```
 
 
-```{r plot-extents2, echo=FALSE, fig.width=7,fig.height=8,fig.align='left',fig.cap = "Fig 1B. The results of make_extents() zoomedin, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." }
+```{r plot-extents2, echo=FALSE, fig.width=7,fig.height=7,fig.align='left',fig.cap = "Fig 1B. The results of make_extents() zoomed in, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." }
 Cam <- ggplot(windextents$CAMILLE_1969_NA_1969226N18280|>
                  mutate(source=factor(source,levels=c("native","native & modeled","interpolated","interpolated & modeled"))))+
 geom_sf(data=countries|>st_transform(st_crs(windextents[[1]])))+
@@ -181,18 +191,44 @@ Next, we interpolate and/or model the winds across space and time, creating a mo
 winds <- lapply(windextents,get_wind,methods=c("all"))
 
 ###  they are now stored in separate lists, one for each method
-###  they can stay like this or we can combine everything
-winds_Camille <- rast(winds_Camille)
-winds_Sinlaku <- rast(winds_Sinlaku)
+winds_Camille <- winds$CAMILLE_1969_NA_1969226N18280
+winds_Sinlaku <- winds$SINLAKU_2026_WP_2026099N09152
 
+##  if previously saved to disk at ~./Cyclone Products/Wind/, can also load using the storm directory name
+##  if we want the list to have the same names, we have to set them before running as name = directory
+winds <- list(CAMILLE_1969_NA_1969226N18280="CAMILLE1969_20000_60_WIND",
+              SINLAKU_2026_WP_2026099N09152="SINLAKU2026_20000_60_WIND")
+winds <- lapply(winds,get_wind,todir="./Cyclone Products/Wind/",loadrasts = TRUE)
+
+###  to plot specific dates via ggplot
+Camdate = c("196908171100","196908180400","196908181200")
+windsCam_msw <- winds_Camille$willoughby[[grep("msw",names(winds_Camille$willoughby))]]
+windsCam_msw <- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format="%Y%m%d%H%M",tz="UTC")]]
+windsCammsw_df <- as.data.frame(project(windsCam_msw,"epsg:4326"),xy=TRUE)
+names(windsCammsw_df)[3:5] <- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep="_")
+windsCammsw_df <- windsCammsw_df |>
+  tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","time"))|>
+  mutate(layer=paste0("Camille\n",method))
+ggplot(data=windsCammsw_df) +
+  geom_raster(aes(x=x,y=y,fill=value))+
+  facet_grid(layer~time)+
+  scale_fill_viridis_c(n=10,na.value = "transparent",name="Maximum\nSustained\nWinds\n(m/s)",
+                       breaks=c(0,10,20,30,40,50,60,70))+
+  theme_bw()+
+  geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="black")+
+  ggtitle("Wind Method Comparisons")+
+  scale_x_continuous(limits=c(-94.5,-83),breaks=c(-92,-88,-84))+
+  ylim(23,36.5)+
+  theme(axis.title = element_blank(),panel.grid=element_blank())+
+  theme(legend.position = "none")
 ```
 
-```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=9,fig.height=11,fig.align='left',fig.cap="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette."}
+```{r plotwinds1,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=9,fig.height=11,fig.align='left',fig.cap="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power dissipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette."}
 library(terra)
 library(sf)
-winds_Camille <- get_wind("CAMILLE1969_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/",loadrasts = TRUE)[[1]]
+winds_Camille <- get_wind("CAMILLE1969_20000_60_WIND",todir="I:/Cyclone Products/Wind/v3_unmodeled/",loadrasts = TRUE)
 Camdate = c("196908171100","196908180400","196908181200")
-windsCam_msw <- winds_Camille[[grep("msw",names(winds_Camille))]]
+windsCam_msw <- winds_Camille$willoughby[[grep("msw",names(winds_Camille$willoughby))]]
 windsCam_msw <- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format="%Y%m%d%H%M",tz="UTC")]]
 windsCammsw_df <- as.data.frame(project(windsCam_msw,"epsg:4326"),xy=TRUE)
 names(windsCammsw_df)[3:5] <- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep="_")
@@ -207,8 +243,8 @@ gg1 <- ggplot(data=windsCammsw_df) +
   theme_bw()+
   geom_sf(data=rnaturalearth::ne_countries(scale="Medium",country = c("united states of america","mexico")),fill=NA,col="black")+
   ggtitle("Wind Method Comparisons")+
-  scale_x_continuous(limits=c(-92.5,-85),breaks=c(-92,-88,-84))+
-  ylim(24,35)+
+  scale_x_continuous(limits=c(-94.5,-83),breaks=c(-92,-88,-84))+
+  ylim(23,36.5)+
   theme(axis.title = element_blank(),panel.grid=element_blank())+
   theme(legend.position = "none")
 
@@ -238,13 +274,12 @@ gg2 <-ggplot(data=windsSinmsw_df) +
 print((gg1/gg2)+plot_layout(heights = c(1,2)))
 ```
 
-
 It may also be desired to obtain an aggregate summary of a storm, rather than or in addition to individual time steps.This can be achieved via the terra package's 'app' functionality. In this case, we simply take the maximum to determine the maximum sustained wind at any given point during the duration of the storm, or the sum to get the total power dissipation at any given point. 
 
-```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=7,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
+```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=6,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
 
 ### take only the msw (maximum sustained winds) layers 
-Cam_msw <- app(winds_Camille[[grepl("msw",names(winds_Camille))]],fun="max",na.rm=TRUE)
+Cam_msw <- app(winds_Camille$willoughby[[grepl("msw",names(winds_Camille$willoughby))]],fun="max",na.rm=TRUE)
 terra::plot(Cam_msw,main="Hurricane Camille, 1969 - Maximum Sustained Winds (m/s)")
 terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_msw))),add=TRUE)
 
@@ -260,7 +295,16 @@ terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_msw))
 
 
 ## Build Precip Rasters
-Cyclone precipitation products are different from wind products in that they are mostly retrieved rather than assembled. Precipitation can come from one of three sources: The default European Centre for Medium-Range Weather Forecasts (ecmwf), NASA's Global Precipitation Measurement Mission (gpm), or the Multi-Source Weighted-Ensemble Precipitation product (mswep). For all sources, some sort of pre-registration and subsequent configuration in R is necessary to access data. Additional packages are also necessary for API interaction at each source. These will be prompted for when required. Alternatively, data could be downloaded manually and held in the './~dpath~/source/' directory, ensuring original filenames are retained for loading via 'get_precip()'.
+Cyclone precipitation products are different from wind products in two ways: 1) They are mostly retrieved rather than calculated and assembled, and 2) they include 'predecessor' events that occur before the storm's arrival. 
+
+Precipitation can come from one of three sources: The default European Centre for Medium-Range Weather Forecasts (ecmwf), NASA's Global Precipitation Measurement Mission (gpm), or the Multi-Source Weighted-Ensemble Precipitation product (mswep). For all sources, some sort of pre-registration and subsequent configuration in R is necessary to access data. Additional packages are also necessary for API interaction at each source. These will be prompted for when required. Alternatively, data could be downloaded manually and held in the './~dpath~/~source~/' directory, ensuring original filenames are retained for loading via 'get_precip()'. 
+
+* [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)
+* [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)
+* [request access to MSWEP](https://www.gloh2o.org/)
+
+Precipitation products also come with a 'prestorm' option, which allows for the collection of precipitation over certain time periods, typically 24-48 hrs, before the storm's arrival. This is to account for the well-document PRE events and is explained in more detail in the ['Rains' vignette](https://bbranoff.github.io/Cyclones/Rains.html). 
+
 ```{r get_precip_false,eval=FALSE}
 ##  to download the ERA5 website, you must first register with either ECMWF or NASA, or request access to MSWEP:
 ##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)
@@ -283,20 +327,30 @@ library(googledrive)
 drive_auth()
 
 ##  The system is now configured to access the data.
-##  To not have to re-download storm data again, store the files in a local repository
-##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and re-downloaded in subsequent R sessions)
-##  either way, the function will provide the resulting rasters, which can be processed and stored as desired
-##  the default source is ecmwf
+##  To not have to re-download storm data again, store the files in a local repository (dpath)
+##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and 
+##  re-downloaded in subsequent R sessions). Either way, the function will 
+##  provide the resulting rasters, which can be processed and stored as desired.
+##  The default source is ecmwf
+googledrive::drive_auth() ## for mswep
 precip <- lapply(storms,get_precip,dpath="./Precipitation",sources="all")
+###  can also load from disk if already saved
+precip <- list(CAMILLE_1969_NA_1969226N18280="CAMILLE1969_25000_60_PRECIP",
+               ###  because Sinlaku has different sources and s_res was not specified, they are stored in different directories
+              SINLAKU_2026_WP_2026099N09152=c("SINLAKU2026_25000_60_PRECIP",
+                                              "SINLAKU2026_5000_60_PRECIP",
+                                              "SINLAKU2026_10000_60_PRECIP"))
+precip <- lapply(precip,get_precip,todir="./Cyclone Products/Precip/",loadrasts = TRUE)
 
 precip
 ###  results are broken down by storm, source, and also storm and pre-storm (if desired)
 ###  MSWEP or GPM were not available for Camille, but all three are available for Sinlaku
 ###  separate storms and methods
-precip_Camille <- precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
+precip_Camille <- precip$CAMILLE_1969_NA_1969226N18280$ecmwf$storm
 ##  not as simple for Sinlaku because the mswep resolution is different than the ecmwf, so must keep them separate
-precip_Sinlaku <- list(precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
-                       precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
+##  more on forcing the same resolution in the 'Rains' vignette
+precip_Sinlaku <- list(precip$SINLAKU_2026_WP_2026099N09152$ecmwf$storm,
+                       precip$SINLAKU_2026_WP_2026099N09152$mswep$storm)
 
 ##  plotting random times in base plot
 plot(precip_Camille[[100:102]])
@@ -311,20 +365,25 @@ ggplot(data=PrecipsCamille_df) +
    scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)")+
    coord_sf(crs ="+proj=robin +lon_0=180")+
    theme_bw()+
-   geom_sf(data=st_transform(rnaturalearth::ne_countries(),crs(PrecipsCamille)),fill=NA,col="black")+
-   geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type="tiny_countries"),crs(PrecipsCamille)),
-                aes(label = admin), size = 3, check_overlap = TRUE) +
+   geom_sf(data=rnaturalearth::ne_countries(),fill=NA,col="black")+
    ggtitle("Hurricane Camille, Precipitation")+
-   xlim(-1400000,400000)+ylim(-7e5,6e5)+
+   scale_x_continuous(limits=c(-94.5,-83),breaks=c(-92,-88,-84))+
+   ylim(23,36.5)+
    theme(axis.title = element_blank(),panel.grid=element_blank())
 
 ###  same code for Sinlaku not shown
 ```
 ```{r plot_precip,echo=FALSE,message=FALSE,warning=FALSE,fig.width=9,fig.height=9,fig.cap="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998."}
-precip <- lapply(c("CAMILLE1969_25000_60_PRECIP","SINLAKU2026_25000_60_PRECIP","SINLAKU2026_10000_60_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip/v2",loadrasts=TRUE)
-precip_Camille <- precip[[1]]$ecmwf$storm#precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
-precip_Sinlaku <- list(precip[[2]]$ecmwf$storm,#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
-                       precip[[3]]$mswep$storm)#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
+precip <- list(CAMILLE_1969_NA_1969226N18280="CAMILLE1969_25000_60_PRECIP",
+               ###  because Sinlaku has different sources and s_res was not specified, they are stored in different directories
+              SINLAKU_2026_WP_2026099N09152=c("SINLAKU2026_25000_60_PRECIP",
+                                              "SINLAKU2026_5000_60_PRECIP",
+                                              "SINLAKU2026_10000_60_PRECIP"))
+precip <- lapply(precip,get_precip,todir="I:/Cyclone Products/Precip/v2",loadrasts = TRUE)
+precip_Camille <- precip$CAMILLE_1969_NA_1969226N18280$ecmwf$storm#precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
+precip_Sinlaku <- list(precip$SINLAKU_2026_WP_2026099N09152$ecmwf$storm,#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
+                       precip$SINLAKU_2026_WP_2026099N09152$mswep$storm,
+                       precip$SINLAKU_2026_WP_2026099N09152$gpm$storm)#precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
 PrecipsCamille_df <- as.data.frame(project(precip_Camille[[100:102]],'epsg:4326'),xy=TRUE)
 names(PrecipsCamille_df)[-c(1,2)] <- paste(names(PrecipsCamille_df)[-c(1,2)],time(precip_Camille[[100:102]]),sep="_")
 PrecipsCamille_df <-PrecipsCamille_df |>
@@ -333,32 +392,40 @@ PrecipsSinlaku_df1 <- as.data.frame(project(precip_Sinlaku[[1]][[time(precip_Sin
 names(PrecipsSinlaku_df1)[-c(1,2)] <- paste(names(PrecipsSinlaku_df1)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
 PrecipsSinlaku_df2 <- as.data.frame(project(precip_Sinlaku[[2]][[time(precip_Sinlaku[[2]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],'epsg:4326'),xy=TRUE)
 names(PrecipsSinlaku_df2)[-c(1,2)] <- paste(names(PrecipsSinlaku_df2)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
+PrecipsSinlaku_df3 <- as.data.frame(project(precip_Sinlaku[[3]][[time(precip_Sinlaku[[3]]) %in% as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC")]],'epsg:4326'),xy=TRUE)
+names(PrecipsSinlaku_df3)[-c(1,2)] <- paste(names(PrecipsSinlaku_df3)[-c(1,2)],as.POSIXct(c("2026-04-12 12:00","2026-04-12 13:00","2026-04-12 14:00"),tz="UTC"),sep="_")
+
 PrecipsSinlaku_df <-bind_rows(PrecipsSinlaku_df1 |>
    tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")),
    PrecipsSinlaku_df2 |>
+   tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")),
+   PrecipsSinlaku_df3 |>
    tidyr::pivot_longer(cols=-c(x,y),names_sep = "_",names_to = c("method","unit","source","time")))
 Cam <- ggplot(data=PrecipsCamille_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
-  facet_grid(method~time)+
-   scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)")+
+   facet_grid(method~time)+
+   scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)",
+                        breaks=c(0,5,10,15,20))+
    theme_bw()+
    geom_sf(data=rnaturalearth::ne_countries(country = "united states of america",scale=10),fill=NA,col="black")+
    ggtitle("Hurricane Camille, Precipitation")+
    scale_x_continuous(limits=c(-94.5,-84),breaks=c(-92,-88,-84))+
    ylim(24,35)+
-   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="none")
+   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="right")
 Sin <- ggplot(data=PrecipsSinlaku_df) +
    geom_raster(aes(x=x,y=y,fill=value))+
    facet_grid(method~time)+
    scale_fill_viridis_c(n=10,na.value = "transparent",name="Rainfall\n(mm/hr)",
-                        breaks=c(0,10,20,30,40))+
+                        breaks=c(0,10,20,30,40,50,60))+
    theme_bw()+
    geom_sf(data=rnaturalearth::ne_countries(scale=10,continent="Oceania"),fill=NA)+
    ggtitle("Super Typhoon Sinlaku, Precipitation")+
   scale_x_continuous(limits=c(145,155),breaks=c(142,148,152))+ylim(6,16)+
-   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="bottom")
+   theme(axis.title = element_blank(),panel.grid=element_blank(),legend.position="right")
 print((Cam/Sin)+plot_layout(heights = c(1, 2)))
 ```
+
+The above demonstrates the differences between the precipitation sources. GPM for Sinlaku is a recent file (as of July 2026), which has not been verified by gauge data. This verification and subsequent correction happens at least 4-6 months after the event. Thus, users should use caution when urilizing GPM for relatively recent storms. Validation routines are needed to help bound precipitation and test for best approximation, such as those from the drop sondes used to validate wind products. 
 
 Just as for the wind products, precipitation can also be aggregated to provide a summary of the entire storm. Of particular interest for rain is the total accumulation, and perhaps the mean rainfall rate. Although not shown here, pre-storm precipitation associated with potential 'precursor rain events' might also be included in such an aggregation. See the [Rains](https://bbranoff.github.io/Cyclones/Rains.html) vignette for more details. 
 

@@ -14,6 +14,7 @@
 #' of maximum wind that are greater than extents of lower wind speeds, or minimum central pressures that are greater than the pressure at the last closed isobar.
 #' @param type the desired class of output sf object, either 'linestrings','polygons', or 'all'.
 #' @param t_res the desired temporal resolution of the output features, in minutes.
+#' @param cpus for internal parallelization. Currently not functional as parallel not faster for make_extents().
 #' @returns Simple features geometry collection containing time stamped storm tracks and either linestrings, polygons, or both representing the maximum extent
 #' of wind speeds, the eye wall (if present) and the Radius of the Last Closed Isobar (ROCI). All geometries are relative to a custom coordinate reference
 #' system (crs) centered on the storm's centroid and in a Lambert azimuthal equal-area projection.
@@ -41,22 +42,22 @@ make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="C
   }
   options(warn = 0)
   ###  parallel taking much longer than serial....
-  if (!is.null(cpus)) {
-    on.exit(sfStop())
-    initiatepar(cpus,type="extents")
-    dates_par <- split(seq_along(unique(points$date)),cut(seq_along(unique(points$date)),cpus))
-    custCRSall <- paste0("+proj=laea +lat_0=",round(mean(points$LAT,na.rm=TRUE))," +lon_0=",round(mean(points$LON,na.rm=TRUE))," +lat_1=",ceiling((max(points$LAT,na.rm=TRUE)-min(points$LAT,na.rm=TRUE))/6),
-                         " +lat_2=",ceiling(5*(max(points$LAT,na.rm=TRUE)-min(points$LAT,na.rm=TRUE))/6)," +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs")
-    track <- sfLapply(dates_par,function(x,pnts,md,typ,cr){
-      pnts <- pnts |> filter(date %in% unique(pnts$date)[x])
-      tr <- lapply(1:nrow(pnts),apply_tracks,pnts,md,typ=type)
-      tr <- lapply(tr,st_transform,cr)
-      do.call(rbind,tr)
-    },md=mods,pnts=points,typ=type,cr=custCRSall)
-  }else{
+  # if (!is.null(cpus)) {
+  #   on.exit(sfStop())
+  #   initiatepar(cpus,type="extents")
+  #   dates_par <- split(seq_along(unique(points$date)),cut(seq_along(unique(points$date)),cpus))
+  #   custCRSall <- paste0("+proj=laea +lat_0=",round(mean(points$LAT,na.rm=TRUE))," +lon_0=",round(mean(points$LON,na.rm=TRUE))," +lat_1=",ceiling((max(points$LAT,na.rm=TRUE)-min(points$LAT,na.rm=TRUE))/6),
+  #                        " +lat_2=",ceiling(5*(max(points$LAT,na.rm=TRUE)-min(points$LAT,na.rm=TRUE))/6)," +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs")
+  #   track <- sfLapply(dates_par,function(x,pnts,md,typ,cr){
+  #     pnts <- pnts |> filter(date %in% unique(pnts$date)[x])
+  #     tr <- lapply(1:nrow(pnts),apply_tracks,pnts,md,typ=type)
+  #     tr <- lapply(tr,st_transform,cr)
+  #     do.call(rbind,tr)
+  #   },md=mods,pnts=points,typ=type,cr=custCRSall)
+  # }else{
     track <- lapply(1:nrow(points),apply_tracks,m=mods,pts=points,typ=type)
-  }
-  if (all(unique(unlist(lapply(track,names)))==c("swaths","linestrings"))) extents <- list(swaths=do.call(rbind,lapply(track,function(x) x$swaths)),linestrings=do.call(rbind,lapply(track,function(x) x$linestrings)))
+  #}
+  if (all(unique(unlist(lapply(track,names)))==c("swaths","linestrings"))) extents <- list(polygons=do.call(rbind,lapply(track,function(x) x$swaths)),linestrings=do.call(rbind,lapply(track,function(x) x$linestrings)))
   else extents <-do.call(rbind,track)
   cat("\n")
   #bundle <- list(polygons=swaths,linestrings=linestrings)
@@ -186,7 +187,10 @@ apply_tracks <- function(L,pts,m,typ){
       rename(basin=BASIN)
     linestrings=bind_rows(trck|>st_transform(custCRSall),point|>st_transform(custCRSall))
     cat(paste("\rBuilding wind extents for ",unique(linestrings$ID)," : %",round(100*L/nrow(pts),1)))
-    return(linestrings)
+    if (("linestrings" %in% typ)&length(typ)==1) extents=linestrings
+    else if (("polygons" %in% typ)&length(typ)==1) extents=NULL
+    else if (("linestrings" %in% typ & "polygons" %in% typ)||typ=="all")  extents <- list(swaths=NULL,linestrings=linestrings)#|> tidyr::nest(.by =ID)
+    return(extents)
   }
   if (is.na(maxwinddist)) maxwinddist <- min(swathpoints,na.rm=TRUE)
   for (i in which(swathpoints>0)){
@@ -328,10 +332,10 @@ apply_tracks <- function(L,pts,m,typ){
   if ("polygons" %in% typ|"all" %in% typ){
     swaths <- bind_rows(swaths|>st_transform(custCRSall),trck|>st_transform(custCRSall),point|>st_transform(custCRSall))
   }
-  cat(paste("\rBuilding wind extents for ",unique(linestrings$ID)," : %",round(100*L/nrow(pts),1)))
-  if (("linestrings" %in% typ)&length(typ==1)) extents=linestrings
-  else if (("polygons" %in% typ)&length(typ==1)) extents=swaths
-  else if (("linestrings" %in% typ & "polygons" %in% typ)|typ=="all")  extents <- list(swaths=swaths,linestrings=linestrings)#|> tidyr::nest(.by =ID)
+  cat(paste("\rBuilding wind extents for ",unique(trck$ID)," : %",round(100*L/nrow(pts),1)))
+  if (("linestrings" %in% typ)&length(typ)==1) extents=linestrings
+  else if (("polygons" %in% typ)&length(typ)==1) extents=swaths
+  else if (("linestrings" %in% typ & "polygons" %in% typ)||typ=="all")  extents <- list(swaths=swaths,linestrings=linestrings)#|> tidyr::nest(.by =ID)
   return(extents)
 }
 interp_track <- function(pnts,tres,pre=NULL,wind=TRUE){
@@ -429,8 +433,9 @@ interp_track <- function(pnts,tres,pre=NULL,wind=TRUE){
                                          if_else(WIND<=82,1,
                                                  if_else(WIND<=95,2,
                                                          if_else(WIND<=112,3,
-                                                                 if_else(WIND<=136,4,5)))))),USA_SSHS))|>
-    tidyr::fill(c(SID:BASIN,ID))
+                                                                 if_else(WIND<=136,4,5)))))),USA_SSHS),
+      )|>
+    tidyr::fill(any_of(c("SID","USA_ATCF_ID","SEASON","NAME","BASIN","ID")))
   newpoints
 }
 model_extent <- function(swathpnts,m,mxwnd,mxwnd_dist,C,bas){

@@ -38,7 +38,7 @@ boose <- function(L,extents,tmpRas,todir,smooth=FALSE,eye_option=NULL) {
   #vr[dist > 2.5] <- NA
 
   terra::values(tmpRas) <- vr
-  direction <- computeDirectionBoose(dat$crds[,1], dat$crds[,2], st_coordinates(st_transform(dat$cent,4326)),landIntersect,tmpRas)
+  direction <- get_dir(dat$crds[,1], dat$crds[,2], st_coordinates(st_transform(dat$cent,4326)),landIntersect,tmpRas,meth="boose")
   message(paste0("\rCalculating Boose wind field for ",paste(unique(cent$name),unique(format(cent$date,"%Y")),sep="_"),
                  ": %",round(100*L/(nrow(extents|>filter(location=="track points"))+1),1)),appendLF = FALSE)
   package_theoretical_data (dat,tmpRas,tmpRasP,direction,meth="boose")

@@ -87,23 +87,23 @@ get_srtm <- function(storm,dpath=NULL,coastonly=TRUE){
   #elev <- do.call(mosaic, c(elevs, fun = mean))
   return(list(elevs=elevs,tiles=tiles))
 }
-downr <- function(u,df,max_attempts =5,attempt=0,success=FALSE) {
-  while(attempt < max_attempts && !success) {
-    attempt <- attempt + 1
-    tryCatch({
-      edl_download(u,dest =df,quiet=FALSE,overwrite=TRUE)
-      unzip(df,exdir=dirname(df))
-      file.remove(df)
-      if (file.exists(file.exists(gsub(".SRTMGL3.|.zip","",df)))){
-        success <- TRUE
-        return(rast(gsub(".SRTMGL3.|.zip","",df)))
-      }
-    }, error = function(e){
-      if (attempt >= max_attempts) {
-        return(NULL)
-      }else{
-        Sys.sleep(0.5)
-      }
-    })
-  }
-}
+# downr <- function(u,df,max_attempts =5,attempt=0,success=FALSE) {
+#   while(attempt < max_attempts && !success) {
+#     attempt <- attempt + 1
+#     tryCatch({
+#       edl_download(u,dest =df,quiet=FALSE,overwrite=TRUE)
+#       unzip(df,exdir=dirname(df))
+#       file.remove(df)
+#       if (file.exists(file.exists(gsub(".SRTMGL3.|.zip","",df)))){
+#         success <- TRUE
+#         return(rast(gsub(".SRTMGL3.|.zip","",df)))
+#       }
+#     }, error = function(e){
+#       if (attempt >= max_attempts) {
+#         return(NULL)
+#       }else{
+#         Sys.sleep(0.5)
+#       }
+#     })
+#   }
+# }

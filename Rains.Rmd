@@ -81,7 +81,7 @@ str(precip)
 ```
 
 ```{r show_precip,echo=FALSE,message=FALSE,warning=FALSE}
-precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
+precip <- lapply(list(FRANCES_2004_NA_2004238N11325="FRANCES2004_10000_30_PRECIP",HELENE_2024_NA_2024268N17278="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
 str(precip)
 ```
 
@@ -89,7 +89,7 @@ We can see from the above the results are typical of Cyclones products, nested l
 
 ```{r show_precip2,message=FALSE,warning=FALSE}
 ###  showing one set of raster stacks
-precip$HELENE2024$ecmwf$storm
+precip$HELENE_2024_NA_2024268N17278$ecmwf$storm
 ```
 
 We could also get the precipitation for storms in parallel if desired. This would be most useful when processing many storms, effectively taking the same time to process 5 storms (when utilizing 5 cpus) as it would to process 1. Unfortunately, Snowfall does not support writing progress to the console, so all processing in parallel is silent. Other parallel libraries should also be capable of this, but they have not been tested extensively.
@@ -97,15 +97,12 @@ We could also get the precipitation for storms in parallel if desired. This woul
 ```{r parallel_precip_false,eval=FALSE}
 ##  initiate parallel
 ##  in this simple case just our two storms, so only 2 cpus necessary
-sfInit(parallel=TRUE,cpus=2)
-##  must import the libraries to the workers
-##  this should be covered by exporting only Cyclones, but just in case
-sfLibrary(terra)
-sfLibrary(sf)
-sfLibrary(dplyr)
-sfLibrary(Cyclones)
-##  here, we remove the cpus call in get_precip to avoid running nested parallel processes
-precip_par <- sfLapply(storms,get_precip,dpath="./data/Precipitation",sources="ecmwf",prestorm=TRUE,t_res=30,s_res=10000)
+initiatepar(cpus=2,type="precip")
+##  sfClusterApplyLB is quicker but may jumble the order of the storms. It will also drop the names of the original list
+##  use sfLapply to for slightly slower but same storm order and maintains names
+precip_par <- sfClusterApplyLB(storms,get_precip,dpath="./data/Precipitation",sources="ecmwf",prestorm=TRUE,t_res=30,s_res=10000)
+sfStop()
+names(precip_par) <- names(storms)
 ##  remember to close the worker nodes
 sfStop()
 precip_par
@@ -113,7 +110,7 @@ precip_par
 
 ```{r parallel_precip,echo=FALSE,message=FALSE,warning=FALSE}
 ####  funky markdown results when running parallel
-###  output is if it wasnt not run in parallel and also all messaging and outputs are displayed
+###  output is if it was not run in parallel and also all messaging and outputs are displayed
 ###  even ones that are normally surpressed when running in the console
 
 # library(snowfall)
@@ -135,7 +132,6 @@ In the above output, note that the products are wrapped (packed) because the par
 ```{r unwrap,eval=FALSE,message=FALSE,warning=FALSE}
 ##  unwrap the packed raster products from a parallel call
 ##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
-
 precip <- rapply(precip_par, unwrap)
 ```
 
@@ -144,10 +140,10 @@ With the precipitation products processed, we can examine the results. To aid in
 ```{r get_precip_plot,message=FALSE,warning=FALSE,fig.width=9,fig.height=7,fig.cap="Fig 1. The results of get_precip() are individual rasters representing the rainfall for each time step in the requested frequency, in this case every 30 minutes. Notice the differences between the precipitation sources. GPM has been noted to overestimate extreme rainfall. Because we also requested prestorm precipitation, the area of interest is expanded to where the storm will be over the next 24 hours and 48 hours. In the case of Frances, most of the storm rainfall fell over the Bahamas, with little prestorm precipitation at that time. Fig 2 demonstrates the case of Helene, which had a significant predecessor rain event."}
 
 ###  read in the files saved to disk
-precip <- lapply(list(FRANCES2004="FRANCES2004_10000_30_PRECIP",HELENE2024="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
+precip <- lapply(list(FRANCES_2004_NA_2004238N11325="FRANCES2004_10000_30_PRECIP",HELENE_2024_NA_2024268N17278="HELENE2024_10000_30_PRECIP"),get_precip,todir="I:/Cyclone Products/Precip",loadrasts = TRUE)
 
 ###  convert to data frame, this time only for FRANCES
-r_df <- rapply(precip$FRANCES2004,function(r){
+r_df <- rapply(precip$FRANCES_2004_NA_2004238N11325,function(r){
   as.data.frame(project(r[[time(r)==as.POSIXct("2004-09-04 01:00")]],"epsg:4326"),xy=TRUE)|>
     tidyr::pivot_longer(cols=3,names_to="layer")
   }, how="list")
@@ -186,7 +182,7 @@ number of custom functions could be used.
 
 ```{r get_precip_agg, message=FALSE,warning=FALSE,fig.width=9,fig.height=11,fig.cap="Fig 2. Aggregating over all layers from the product of 'get_precip()' provides cumulative summaries of the entire storm, rather than specific time steps. Here, the prestorm precipitation in Appalachia from Hurricane Helene is equivalent to the storm derived rainfall in the Yucatan Channel. This PRE event is noted to be largely responsible for much of the disturbance caused by Helene in the Appalachian region, which received only modest wind speeds. The GPM maximum values have been clipped due to the previously noted tenency to overestimate extreme values and to better demonstrate the other sources."}
 ###  apply the 'app()' function and reproject (for easier plotting) over all rasters in the list
-agg_df <- rapply(precip$HELENE2024,function(r){
+agg_df <- rapply(precip$HELENE_2024_NA_2024268N17278,function(r){
   as.data.frame(project(app(r,fun="sum",na.rm=TRUE),"epsg:4326"),xy=TRUE)|>
     mutate(method=unique(strsplit(names(r),"_")[[1]][1]),
            period=gsub("/0.5hr","",unique(strsplit(names(r),"_")[[1]][2])))

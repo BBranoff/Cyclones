@@ -271,6 +271,11 @@ $(document).ready(function () {
 </div>
 
 
+<p>These are the workflow vignettes for the Cyclones package. <a
+href="https://github.com/BBranoff/Cyclones">Full repositry here.</a>
+These workflows demonstrate the primary functions of the package, with
+context as to the reasoning behind the methods and the final
+products.</p>
 <div id="highlights" class="section level1">
 <h1>Highlights</h1>
 <ul>
@@ -278,7 +283,7 @@ $(document).ready(function () {
 either at specific times or as aggregate
 <ul>
 <li>Choose data sources and temporal and spatial resolutions</li>
-<li>Compare calculated winds against Hurricane Hunter dropsondes</li>
+<li>Compare calculated winds against hurricane hunter dropsondes</li>
 </ul></li>
 </ul>
 </div>
@@ -295,6 +300,8 @@ either at specific times or as aggregate
 <li>Integrate LANDSAT for NDVI</li>
 <li>Integrate available LiDAR or NAIP clouds for canopy structure</li>
 <li>Integrate SLOSH for storm surge</li>
+<li>Integrate aspect relative incident wind direction / exposure
+index</li>
 </ul>
 </div>
 <div id="introduction" class="section level1">
@@ -308,8 +315,8 @@ because they work nicely with lapply() and its parallel equivalents.
 This makes it relatively easy to process multiple storms in parallel or
 to process a single storm in parallel. However, raster data via ‘terra’
 can not be passed across parallel workers unless they are wrapped. Thus,
-for now, the raster products in Cyclones will always be wrapped and must
-first be unwrapped before they can be utilized in traditional
+for now, the raster products in Cyclones will sometimes be wrapped and
+must first be unwrapped before they can be utilized in traditional
 workflows.</p>
 <p>Parallel processing is mostly only necessary for multiple storms or
 for high resolution outputs and we recommend users familiarize
@@ -347,8 +354,12 @@ not, the data will be downloaded from the web.</p>
 ##  storms can be singular or plural and can be identified specifically, or not
 ##  HURDAT data are relatively limited compared to IBTrACS and may not have full
 ##  functionality for wind products, but should be sufficient for precipitation and storm surge.
+##  extend timeout if download taking too long
+##  options(timeout=300)
 storms &lt;- get_storms(source=&quot;hurdat&quot;,name=&quot;Camille&quot;,basin=&quot;NA&quot;,season=1969)
 storms &lt;- get_storms(name=c(&quot;Maria&quot;,&quot;IRMA&quot;),basin=&quot;NA&quot;,season=2017)
+##  from file
+storms &lt;- get_storms(&quot;./ibtracs.ALL.list.v04r01.csv&quot;,name=c(&quot;Maria&quot;,&quot;IRMA&quot;),basin=&quot;NA&quot;,season=2017)
 names(storms)
 
 ##  alternatively, all of the data can be downloaded and filtered later
@@ -370,19 +381,24 @@ reporting from multiple agencies that need to be consolidated in some
 way for further processing. Because the ‘USA’ variables have less
 missing values than the other agencies across the entire dataset, they
 are prioritized by default and will be used if other agency values are
-present. If the preferred agency is not present, all the other values
-will be averaged as the consolidated value. However, it is important to
-note that the USA uses 1 minute intervals to define maximum sustained
-winds, while most of the rest of the world uses 10 minute intervals.
-Thus, the other agency values will first be converted to “1 minute”
-intervals using a linear relationship based on the full dataset. No
+present. Users can otherwise provide a preference agency (WMO, TOKYO,
+WELLINGTON etc.) to be considered priority. If the preferred agency is
+not present, all the other values will be averaged as the consolidated
+value. However, it is important to note that the USA uses 1 minute
+intervals to define maximum sustained winds, while most of the rest of
+the world uses 10 minute intervals. Thus, the consolidation of agencies
+from different intervals will involve a conversion to the preference
+interval using a linear relationship based on the full dataset. No
 consolidation is achieved by setting ‘consolidate’ to FALSE. Other
 consolidation preferences can be stipulated by using arguments from the
 ‘cons_stormdat()’ function, such as ‘pref’ = “WMO” to preference the
 World Meteorological Organization values instead, or by setting
 ‘msw_int’ to “10min” to convert all values to 10 minutes instead.
 Alternatively, the ‘cons_stormdat()’ function can be used after
-‘get_storms(consolidate=FALSE)’.</p>
+‘get_storms(consolidate=FALSE)’. It should be noted that most of
+Cyclones is currently built to ingest consolidated data, so choosing not
+to consolidate may impact downstream processing in unpredictable
+ways.</p>
 <div id="make-wind-extent-spatial-features" class="section level2">
 <h2>Make Wind Extent Spatial Features</h2>
 <p>In some cases, it may be desired to produce simple spatial features
@@ -391,14 +407,20 @@ wall diameter, or the radius of the last closed isobar (ROCI). The
 make_extents() function will do this utilizing the native data, which is
 typically in 3hr intervals. The function will also interpolate data to a
 greater frequency using the ‘t_res’ argument, and can incorporate models
-via the ‘mods’ argument to fill in missing extents. See the ‘Winds’
-vignette for more details.</p>
+via the ‘mods’ argument to fill in missing extents. See the <a
+href="https://bbranoff.github.io/Cyclones/Winds.html">‘Winds’
+vignette</a> for more details.</p>
 <pre class="r"><code>##  generate linestring (default) and polygon (optionally) wind extent features for each timestep 
 ##  in each storm. When used as shown below with multiple storms as an input, the functions will 
 ##  only perform the action on the first storm
 windextents &lt;- make_extents(storms,type=c(&quot;linestrings&quot;,&quot;polygons&quot;))
 
-##  To apply the function to all storms, use lapply or a parallel equivalent (snowfall::sfLapply)
+##  if both geometry types were requested they can be directly accessed
+windextents$linestrings
+windextents$polygons
+
+##  To apply the function to all storms, use lapply
+##  parallel functionality demonstrated in the &#39;Winds&quot; and &#39;Rains&quot; vignettes
 ##  use the t_res parameter to adjust temporal resolution (in minutes)
 windextents &lt;- lapply(storms,make_extents,t_res=60)</code></pre>
 <p>These spatial features can also be good for certain storm
@@ -420,9 +442,9 @@ Examples of modeled extents are shown in the ‘Winds’ vignette.
 </p>
 </div>
 <div class="figure" style="text-align: left">
-<img src="index_files/figure-html/plot-extents2-1.png" alt="Fig 1B. The results of make_extents() zoomedin, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." width="672" />
+<img src="index_files/figure-html/plot-extents2-1.png" alt="Fig 1B. The results of make_extents() zoomed in, separated by native versus interpolated features, and only showing hurricane force wind features for clarity. Again, notice that Camille has only one native wind extent, which is the radius of maximum wind at landfall. No other wind or pressure extents are provided. Using the 'mods' argument in make_extents() would model missing values. Sinlaku on the other hand, has much more native wind extents." width="672" />
 <p class="caption">
-Fig 1B. The results of make_extents() zoomedin, separated by native
+Fig 1B. The results of make_extents() zoomed in, separated by native
 versus interpolated features, and only showing hurricane force wind
 features for clarity. Again, notice that Camille has only one native
 wind extent, which is the radius of maximum wind at landfall. No other
@@ -455,15 +477,42 @@ meridian.</p>
 winds &lt;- lapply(windextents,get_wind,methods=c(&quot;all&quot;))
 
 ###  they are now stored in separate lists, one for each method
-###  they can stay like this or we can combine everything
-winds_Camille &lt;- rast(winds_Camille)
-winds_Sinlaku &lt;- rast(winds_Sinlaku)</code></pre>
+winds_Camille &lt;- winds$CAMILLE_1969_NA_1969226N18280
+winds_Sinlaku &lt;- winds$SINLAKU_2026_WP_2026099N09152
+
+##  if previously saved to disk at ~./Cyclone Products/Wind/, can also load using the storm directory name
+##  if we want the list to have the same names, we have to set them before running as name = directory
+winds &lt;- list(CAMILLE_1969_NA_1969226N18280=&quot;CAMILLE1969_20000_60_WIND&quot;,
+              SINLAKU_2026_WP_2026099N09152=&quot;SINLAKU2026_20000_60_WIND&quot;)
+winds &lt;- lapply(winds,get_wind,todir=&quot;./Cyclone Products/Wind/&quot;,loadrasts = TRUE)
+
+###  to plot specific dates via ggplot
+Camdate = c(&quot;196908171100&quot;,&quot;196908180400&quot;,&quot;196908181200&quot;)
+windsCam_msw &lt;- winds_Camille$willoughby[[grep(&quot;msw&quot;,names(winds_Camille$willoughby))]]
+windsCam_msw &lt;- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format=&quot;%Y%m%d%H%M&quot;,tz=&quot;UTC&quot;)]]
+windsCammsw_df &lt;- as.data.frame(project(windsCam_msw,&quot;epsg:4326&quot;),xy=TRUE)
+names(windsCammsw_df)[3:5] &lt;- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep=&quot;_&quot;)
+windsCammsw_df &lt;- windsCammsw_df |&gt;
+  tidyr::pivot_longer(cols=-c(x,y),names_sep = &quot;_&quot;,names_to = c(&quot;method&quot;,&quot;unit&quot;,&quot;time&quot;))|&gt;
+  mutate(layer=paste0(&quot;Camille\n&quot;,method))
+ggplot(data=windsCammsw_df) +
+  geom_raster(aes(x=x,y=y,fill=value))+
+  facet_grid(layer~time)+
+  scale_fill_viridis_c(n=10,na.value = &quot;transparent&quot;,name=&quot;Maximum\nSustained\nWinds\n(m/s)&quot;,
+                       breaks=c(0,10,20,30,40,50,60,70))+
+  theme_bw()+
+  geom_sf(data=rnaturalearth::ne_countries(scale=&quot;Medium&quot;,country = c(&quot;united states of america&quot;,&quot;mexico&quot;)),fill=NA,col=&quot;black&quot;)+
+  ggtitle(&quot;Wind Method Comparisons&quot;)+
+  scale_x_continuous(limits=c(-94.5,-83),breaks=c(-92,-88,-84))+
+  ylim(23,36.5)+
+  theme(axis.title = element_blank(),panel.grid=element_blank())+
+  theme(legend.position = &quot;none&quot;)</code></pre>
 <div class="figure" style="text-align: left">
-<img src="index_files/figure-html/plotwinds1-1.png" alt="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power disspipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette." width="864" />
+<img src="index_files/figure-html/plotwinds1-1.png" alt="Fig 2. The results of get_wind() are rasters for each timestep and at the desired spatial resolution (default in this case is 20km). This is showing windspeed, but wind direction and power dissipation are also provided. For Camille, because much of the required information was missing, only the Willoughby method could be utilized. Sinlaku, however, contains more data and all methods were calculated. Notice, however, the inflated eye region for the TPS method. Although Sinlaku does contain the necessary data for TPS calculation, it is still missing many of the extents when compard to North Atlantic storms. Thus, without using the 'mods' argument in make_extents(), TPS values may not accurately represent the wind extents. A more in-depth exploration of this is given in the 'Winds' vignette." width="864" />
 <p class="caption">
 Fig 2. The results of get_wind() are rasters for each timestep and at
 the desired spatial resolution (default in this case is 20km). This is
-showing windspeed, but wind direction and power disspipation are also
+showing windspeed, but wind direction and power dissipation are also
 provided. For Camille, because much of the required information was
 missing, only the Willoughby method could be utilized. Sinlaku, however,
 contains more data and all methods were calculated. Notice, however, the
@@ -495,17 +544,32 @@ winds) and a dedicated agg_winds() function is forthcoming.
 <div id="build-precip-rasters" class="section level2">
 <h2>Build Precip Rasters</h2>
 <p>Cyclone precipitation products are different from wind products in
-that they are mostly retrieved rather than assembled. Precipitation can
-come from one of three sources: The default European Centre for
-Medium-Range Weather Forecasts (ecmwf), NASA’s Global Precipitation
-Measurement Mission (gpm), or the Multi-Source Weighted-Ensemble
-Precipitation product (mswep). For all sources, some sort of
-pre-registration and subsequent configuration in R is necessary to
-access data. Additional packages are also necessary for API interaction
-at each source. These will be prompted for when required. Alternatively,
-data could be downloaded manually and held in the
-‘./<sub>dpath</sub>/source/’ directory, ensuring original filenames are
-retained for loading via ‘get_precip()’.</p>
+two ways: 1) They are mostly retrieved rather than calculated and
+assembled, and 2) they include ‘predecessor’ events that occur before
+the storm’s arrival.</p>
+<p>Precipitation can come from one of three sources: The default
+European Centre for Medium-Range Weather Forecasts (ecmwf), NASA’s
+Global Precipitation Measurement Mission (gpm), or the Multi-Source
+Weighted-Ensemble Precipitation product (mswep). For all sources, some
+sort of pre-registration and subsequent configuration in R is necessary
+to access data. Additional packages are also necessary for API
+interaction at each source. These will be prompted for when required.
+Alternatively, data could be downloaded manually and held in the
+‘./<sub>dpath</sub>/<sub>source</sub>/’ directory, ensuring original
+filenames are retained for loading via ‘get_precip()’.</p>
+<ul>
+<li><a href="https://www.ecmwf.int/user/login">register with ECMWF for
+ERA5.</a></li>
+<li><a href="https://urs.earthdata.nasa.gov/">register with NASA Earth
+Data for GPM IMERG.</a></li>
+<li><a href="https://www.gloh2o.org/">request access to MSWEP</a></li>
+</ul>
+<p>Precipitation products also come with a ‘prestorm’ option, which
+allows for the collection of precipitation over certain time periods,
+typically 24-48 hrs, before the storm’s arrival. This is to account for
+the well-document PRE events and is explained in more detail in the <a
+href="https://bbranoff.github.io/Cyclones/Rains.html">‘Rains’
+vignette</a>.</p>
 <pre class="r"><code>##  to download the ERA5 website, you must first register with either ECMWF or NASA, or request access to MSWEP:
 ##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)
 ##  [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)
@@ -527,20 +591,30 @@ library(googledrive)
 drive_auth()
 
 ##  The system is now configured to access the data.
-##  To not have to re-download storm data again, store the files in a local repository
-##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and re-downloaded in subsequent R sessions)
-##  either way, the function will provide the resulting rasters, which can be processed and stored as desired
-##  the default source is ecmwf
+##  To not have to re-download storm data again, store the files in a local repository (dpath)
+##  otherwise, if dpath is not provided, they will be stored in a temporary directory (and 
+##  re-downloaded in subsequent R sessions). Either way, the function will 
+##  provide the resulting rasters, which can be processed and stored as desired.
+##  The default source is ecmwf
+googledrive::drive_auth() ## for mswep
 precip &lt;- lapply(storms,get_precip,dpath=&quot;./Precipitation&quot;,sources=&quot;all&quot;)
+###  can also load from disk if already saved
+precip &lt;- list(CAMILLE_1969_NA_1969226N18280=&quot;CAMILLE1969_25000_60_PRECIP&quot;,
+               ###  because Sinlaku has different sources and s_res was not specified, they are stored in different directories
+              SINLAKU_2026_WP_2026099N09152=c(&quot;SINLAKU2026_25000_60_PRECIP&quot;,
+                                              &quot;SINLAKU2026_5000_60_PRECIP&quot;,
+                                              &quot;SINLAKU2026_10000_60_PRECIP&quot;))
+precip &lt;- lapply(precip,get_precip,todir=&quot;./Cyclone Products/Precip/&quot;,loadrasts = TRUE)
 
 precip
 ###  results are broken down by storm, source, and also storm and pre-storm (if desired)
 ###  MSWEP or GPM were not available for Camille, but all three are available for Sinlaku
 ###  separate storms and methods
-precip_Camille &lt;- precip$CAMILLE_1969_NA_1969226N18280$CAMILLE_1969_NA_1969226N18280_precip_ecmwf$storm
+precip_Camille &lt;- precip$CAMILLE_1969_NA_1969226N18280$ecmwf$storm
 ##  not as simple for Sinlaku because the mswep resolution is different than the ecmwf, so must keep them separate
-precip_Sinlaku &lt;- list(precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_ecmwf$storm,
-                       precip$SINLAKU_2026_WP_2026099N09152$SINLAKU_2026_WP_2026099N09152_precip_mswep$storm)
+##  more on forcing the same resolution in the &#39;Rains&#39; vignette
+precip_Sinlaku &lt;- list(precip$SINLAKU_2026_WP_2026099N09152$ecmwf$storm,
+                       precip$SINLAKU_2026_WP_2026099N09152$mswep$storm)
 
 ##  plotting random times in base plot
 plot(precip_Camille[[100:102]])
@@ -555,14 +629,17 @@ ggplot(data=PrecipsCamille_df) +
    scale_fill_viridis_c(n=10,na.value = &quot;transparent&quot;,name=&quot;Rainfall\n(mm/hr)&quot;)+
    coord_sf(crs =&quot;+proj=robin +lon_0=180&quot;)+
    theme_bw()+
-   geom_sf(data=st_transform(rnaturalearth::ne_countries(),crs(PrecipsCamille)),fill=NA,col=&quot;black&quot;)+
-   geom_sf_text(data=st_transform(rnaturalearth::ne_countries(type=&quot;tiny_countries&quot;),crs(PrecipsCamille)),
-                aes(label = admin), size = 3, check_overlap = TRUE) +
+   geom_sf(data=rnaturalearth::ne_countries(),fill=NA,col=&quot;black&quot;)+
    ggtitle(&quot;Hurricane Camille, Precipitation&quot;)+
-   xlim(-1400000,400000)+ylim(-7e5,6e5)+
+   scale_x_continuous(limits=c(-94.5,-83),breaks=c(-92,-88,-84))+
+   ylim(23,36.5)+
    theme(axis.title = element_blank(),panel.grid=element_blank())
 
 ###  same code for Sinlaku not shown</code></pre>
+<pre><code>## Loading CAMILLE1969_25000_60_PRECIP from file: %100
+## Loading SINLAKU2026_25000_60_PRECIP from file: %100
+## Loading SINLAKU2026_5000_60_PRECIP from file: %100
+## Loading SINLAKU2026_10000_60_PRECIP from file: %100</code></pre>
 <div class="figure">
 <img src="index_files/figure-html/plot_precip-1.png" alt="Fig 4. Results of get_precip() are time series rasters of precipitation in the desired spatial resolution. In this case, no resolution was requested, so the native resolution is returned. MSWEP data is only available after 1979 and GPM data fter 1998." width="864" />
 <p class="caption">
@@ -572,6 +649,14 @@ requested, so the native resolution is returned. MSWEP data is only
 available after 1979 and GPM data fter 1998.
 </p>
 </div>
+<p>The above demonstrates the differences between the precipitation
+sources. GPM for Sinlaku is a recent file (as of July 2026), which has
+not been verified by gauge data. This verification and subsequent
+correction happens at least 4-6 months after the event. Thus, users
+should use caution when urilizing GPM for relatively recent storms.
+Validation routines are needed to help bound precipitation and test for
+best approximation, such as those from the drop sondes used to validate
+wind products.</p>
 <p>Just as for the wind products, precipitation can also be aggregated
 to provide a summary of the entire storm. Of particular interest for
 rain is the total accumulation, and perhaps the mean rainfall rate.

@@ -1,10 +1,10 @@
 #' Gather storm(s) tabular data.
 #'
 #'`get_storms()` will accept an already loaded data frame, a filename, or a target web source to download cyclone tabular data and
-#' format it for processing in the Cyclones functions
+#' format it for processing in the Cyclones functions.
 #'
-#' @param source string or data.frame input. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
-#' or a filename of a .csv or .nc file containing tabular cyclone data, or an already loaded data.frame. In the case of an existing data.frame, it should be consistent with
+#' @param source string or data.frame input or pre-loaded object. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
+#' or a filename of a .csv or .nc file containing tabular cyclone data. Can also be pre-loaded data.frame. In the case of an existing data.frame, it should be consistent with
 #' IBTrACS or HURDAT format.
 #' @param id Either the SID (from IBTrACS) or the USA_ATCF_ID (from both hurdat and IBTrACS) used to identify individual storms. Results will be filtered to these values.
 #' @param name The official name of the storm(s). Results will be filtered to these values.
@@ -12,10 +12,10 @@
 #' @param basin The oceanic basin of the storm(s). Results will be filtered to these values. In case a storm traverses multiple basins, its origin basin is used.
 #' @param ib_filt A filtering value for downloading specific IBTrACS data and to avoid downloading the entire dataset if not required. Valid values are:
 #' 'ACTIVE', 'ALL', 'last3years', 'since1980', or the basins: "EP", "NA", "NI", "SA", "SI", "SP", "WP".
-#' @param consolidate To run 'cons_stormdat()' or not, to consolidate values across agencies. When TRUE, CONS_ columns will be added to represent the consolidated values and, unless
+#' @param consolidate To run 'cons_stormdat()' or not, to consolidate values across agencies. When TRUE, 'CONS_' columns will be added to represent the consolidated values and, unless
 #' the 'cols' parameter requests otherwise, the original columns will be dropped. If consolidation is not run, downstream functions may fail or return unexpected results,
 #' as they may not be able to distinguish which columns to use. Also, for the maximum sustained wind columns, the interval period is inconsistent among agencies. Consolidation
-#' translates these values to a common interval.
+#' translates these values to a common interval. See 'cons_stormdat()'.
 #' @param cols Which columns to retain in the output if consolidate is TRUE. Default is that only consolidated values are retained, in addition to storm identification, location,
 #' and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
 #' all original columns are retained when 'cols' is empty.
@@ -35,13 +35,14 @@
 #'
 #' @importFrom dplyr filter mutate any_of select pull slice group_split syms coalesce group_keys first if_else group_by
 get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,returndf=FALSE,...){
-  tmf <- tempfile()
+  tmf <- tempfile(pattern=paste0(c(source,id,name,season,basin,ib_filt),collapse="_"))
   on.exit(unlink(tmf), add = TRUE)
   if (is.data.frame(source)){
     dat=source
   }else if (is.character(source)){
     if(source=="ncei") {
       cat("Downloading IBTrACS from: https://www.ncei.noaa.gov/products/international-best-track-archive")
+      if (is.null(season)) season = (as.numeric(format(Sys.time(),"%Y")))
       if (is.null(ib_filt)&&isTRUE(as.numeric(season)>=(as.numeric(format(Sys.time(),"%Y"))-3))) ib_filt = "last3years" else if (is.null(ib_filt)&&isTRUE(as.numeric(season)>1980)) ib_filt= "since1980"
       ## get appropriate url
       if (!is.null(ib_filt)){
@@ -84,15 +85,16 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
       })
       ##  HURDAT
     }else if (source=="hurdat"){
-      cat("HURDAT data missing ROCI column. This value will be modelled when needed to provide maximum storm extent.")
+      #consolidate=FALSE
+      cat("HURDAT data missing ROCI column. This value will be modelled/estimated when needed to provide maximum storm extent.\n")
       if (is.null(basin)){
         url <- c("https://www.aoml.noaa.gov/hrd/hurdat/hurdat2.html","https://www.aoml.noaa.gov/hrd/hurdat/hurdat2-nepac.html")
         basins <- c("NA","EP")
       }else if (basin=="NA"){
-        cat("Downloading North Atlantic HURDAT2 from: https://www.aoml.noaa.gov/hrd/hurdat/Data_Storm.html")
+        cat("Downloading North Atlantic HURDAT2 from: https://www.aoml.noaa.gov/hrd/hurdat/Data_Storm.html\n")
         url = "https://www.aoml.noaa.gov/hrd/hurdat/hurdat2.html"
       }else if(basin=="EP"){
-        cat("Downloading Northeast Pacific HURDAT2 from: https://www.aoml.noaa.gov/hrd/hurdat/Data_Storm.html")
+        cat("Downloading Northeast Pacific HURDAT2 from: https://www.aoml.noaa.gov/hrd/hurdat/Data_Storm.html\n")
         url = "https://www.aoml.noaa.gov/hrd/hurdat/hurdat2-nepac.html"
       }else{
         stop("Basin not available in HURDAT. HURDAT available for North Atlantic 'NA' and 'EP' basins.")
@@ -119,6 +121,7 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
     stop("unknown data source")
   }
   if (any(grepl("nmile",dat|>slice(1)))) dat <- dat |> slice(-1)
+
   dat <- dat |>
     mutate(ID=coalesce(!!!syms(intersect(c("SID","USA_ATCF_ID"),names(dat))))) |>
     ## some storms traverse basins so must take only the original basin in the name
@@ -153,6 +156,15 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
       dat <- dat |> filter(NAME %in% toupper(name))
     }else{ stop("Provided season value not found in data. Check source and other filters.")}
   }
+  if (source=="hurdat"){
+    ##  add in the STORMSPEED column after filtering to save time
+    sfdat <- st_as_sf(dat,coords=c("LON","LAT"),crs=4326)|>
+      group_by(USA_ATCF_ID)|>
+      mutate(distance=sf::st_distance(geometry, lead(geometry), by_element = TRUE),
+             timestep_hrs=difftime(lead(ISO_TIME),ISO_TIME,units="hours"),
+             STORMSPEED=round(as.numeric(distance)/1852/as.numeric(timestep_hrs),1))
+    dat$STORM_SPEED <- sfdat$STORMSPEED
+  }
   if (!is.null(id)){
     if ((id %in% unique(dat$SID)|id %in% unique(dat$USA_ATCF_ID)))
       dat <- dat |> filter(SID %in% id|USA_ATCF_ID %in% id)
@@ -170,8 +182,12 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
 get_hurdat <- function(u,tf,ID,basin){
   tryCatch({
     # Attempt to download the file
-      download.file(u,paste0(tf,".txt"))
-      hurdat <- readLines(paste0(tf,".txt"))
+    if (length(list.files(dirname(tf),pattern=paste((strsplit(basename(tf),"_"))[[1]][1:3],collapse="_")))>0){
+      cat(paste0("Loading previously downloaded file from temp folder: ",tempdir()))
+      tf <-gsub(".txt","",list.files(dirname(tf),pattern=paste((strsplit(basename(tf),"_"))[[1]][1:3],collapse="_"),full.names = TRUE))
+    }
+    else (download.file(u,paste0(tf,".txt")))
+    hurdat <- readLines(paste0(tf,".txt"))
     message("Download successful!")
   },
   error = function(e) {
@@ -210,10 +226,19 @@ get_hurdat <- function(u,tf,ID,basin){
                            "USA_R64_NE", "USA_R64_SE","USA_R64_SW","USA_R64_NW","USA_RMW")) |>
       mutate(USA_ATCF_ID=strsplit(y[x[1]],",")[[1]][1],
              NAME=gsub("^\\s+|\\s+$","",strsplit(y[x[1]],",")[[1]][2]),
-             ISO_TIME=as.POSIXct(paste0(substr(date,1,4),"-",substr(date,5,6),"-",substr(date,7,8)," ",sprintf("%04d",time)),format="%Y-%m-%d %H",tz="UTC"))
+             ISO_TIME=as.POSIXct(paste0(substr(date,1,4),"-",substr(date,5,6),"-",substr(date,7,8)," ",sprintf("%04d",time)),format="%Y-%m-%d %H",tz="UTC"),
+             LAT = as.numeric(if_else(grepl("N",LAT),gsub("N| ","",LAT),
+                                      if_else(grepl("S",LAT),paste0("-",gsub("S| ","",LAT)),LAT))),
+             LON = as.numeric(if_else(grepl("E",LON),gsub("E| ","",LON),
+                                      if_else(grepl("W",LON),paste0("-",gsub("W| ","",LON)),LON))),
+             USA_SSHS = if_else(is.na(USA_MSW),NA,
+                                if_else(USA_MSW>=135,5,if_else(USA_MSW>=114,4,if_else(USA_MSW>=96,3,if_else(USA_MSW>=84,2,if_else(USA_MSW>=65,1,if_else(USA_MSW>=34,0,-1)))))))
+             )|>
+      rename(USA_WIND=USA_MSW)
   },y=hurdat)
   dat <- do.call(rbind,storms) |>
     mutate(BASIN=basin,SEASON=substr(date,1,4))
+
   dat
 }
 get_nc <-  function(srce){

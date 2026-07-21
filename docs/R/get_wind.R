@@ -42,7 +42,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
                      todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=FALSE){
   if (!is.null(cpus)){parallel <- TRUE;on.exit(sfStop())}else{parallel <- FALSE}
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(stormextent)[1]=="character") return(load_wind(stormextent,todir,loadrasts))
+  if (class(stormextent)[1]=="character") return(deliver_wind(winds=NULL,track=stormextent,todir=todir,loadrsts=loadrasts))
   ###  this must be done before the directory/file check
   ###  if multiple storms are passed to the function,
   if (is.null(dim(stormextent))){
@@ -66,6 +66,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
   ex_parallel <- any(unlist(lapply(sys.calls(), function(cal) {
     as.character(cal[[1]]) %in% c("slaveLoop", "%dopar%","workLoop")
   })))
+  if (ex_parallel) library(Cyclones)
   if (parallel){
     if (ex_parallel) stop("Another wrapper function detected. Is parallel processing already implemented at the storm level? Nested parallel operations  not currently supported.")
     if (!"snowfall" %in% installed.packages()) stop("package 'snowfall' not detected but necessary for internal parallel operations.")
@@ -101,7 +102,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
         mswexists <- tofiles[file.exists(tofiles)]
         dates <- dates[!file.exists(tofiles)]
       }else{mswexists <- NULL}
-    }
+    }else{mswexists <- NULL}
     if (length(dates)>0){
       if (meth=="tps"){
         stormextent_model <- stormextent |> filter(date %in% dates)
@@ -117,7 +118,8 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
         newdir <- paste0(todir,"/",meth,"/")
         if (!dir.exists(newdir)) dir.create(newdir)
       }else{newdir=NULL}
-      fun <- match.fun(meth)
+      ###  for ex_parallel operation, must explicitly export the function from the namespace, match.fun will not work
+      fun <- get(meth, envir = asNamespace("Cyclones"), mode = "function")#<- match.fun(meth)
       cat(paste0("processing wind for ", unique(stormextent$name),"_",unique(format(stormextent$date,"%Y"))," via ",meth,"\n"))
       if (parallel){
         msw <- parallelwind(dates, stormextent_model, rTemps,fun,eye_option=eye_option)
@@ -135,7 +137,8 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
     winds=append(winds,list(msw))
     cat("\n")
   }
-  names(winds) <- paste(unique(stormextent$ID[!is.na(stormextent$ID)]),"wind",tolower(methods),sep="_")
+  #names(winds) <- paste(unique(stormextent$ID[!is.na(stormextent$ID)]),"wind",tolower(methods),sep="_")
+  names(winds) <- tolower(methods)
   return(winds)
 }
 initiatepar <- function(cpus,type="wind"){
@@ -194,7 +197,25 @@ parallelwind <- function(dates,cents, r,meth,eye_option) {
   msw
 }
 deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
-  #tofiles <-paste0(todir,"/tps_",unique(tracks$ID[!is.na(tracks$ID)]),"_",unique(format(d1,"%Y%m%d%H%M")),".tif")
+  # if just loading the rasters from file
+ if (is.null(winds)){
+    if (is.null(todir)){
+      todir=getwd()
+    }
+    meths <- list.dirs(paste0(todir,"/",track,"/"))[-1]
+    winds = list.files(paste0(todir,"/",track,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+    if (length(winds)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
+    out <- list()
+    for (m in meths){
+      winds = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
+      if (length(winds)>0){
+        if (loadrsts) winds = rast(winds)
+        out <- append(out,list(winds))
+      }
+    }
+    names(out) <- basename(meths)
+    return(out)
+  }
   if (class(winds[[1]])!="character") {
     winds <- lapply(winds, unwrap)
     ###  only keep the files that arent already saved if overwrite is FALSE?
@@ -221,27 +242,10 @@ deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel
   if (loadrsts|is.null(todir)){
     if (ex_parallel) return(wrap(rast(winds)))
     else(return(rast(winds)))
+  }else{
+    return(tofiles)
   }
 }
-load_wind <- function(storm,todir,loadrasts){
-  if (is.null(todir)){
-    todir=getwd()
-  }
-  meths <- list.dirs(paste0(todir,"/",storm,"/"))[-1]
-  winds = list.files(paste0(todir,"/",storm,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
-  if (length(winds)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
-  out <- list()
-  for (m in meths){
-   winds = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
-    if (length(winds)>0){
-      if (loadrasts) winds = rast(winds)
-      out <- append(out,list(winds))
-    }
-  }
-  names(out) <- basename(meths)
-  return(out)#setNames(list(out),paste(strsplit(precips[[1]],"_")[[1]][c(5:8)],collapse ="_")))
-}
-
 
 prep_theoretical_data <- function(L,extents,tmpRas){
   id =unique(extents$ID[!is.na(extents$ID)])
@@ -280,12 +284,14 @@ package_theoretical_data <- function(dat,tmpRas,tmpRasP,dir,meth,smooth=FALSE){
   distr[distr>(dat$cent$roci.m/1000)] <- dat$cent$roci.m/1000
   P <- dat$minpress+(distr/0.001)*(dat$deltP/(dat$cent$roci.m))
   dens <- P*100/(287.058*298)
-  kW <- as.numeric(dat$cent$dt)*(0.5*dens*1*(tmpRas)^3)/1000
+  #kW <- as.numeric(dat$cent$dt)*(0.5*dens*1*(tmpRas)^3)/1000
+  #  Just assume a constant density (1.15), much easier and probably more realistic
+  kW <- as.numeric(dat$cent$dt)*(0.5*1.15*1*(tmpRas)^3)/1000
   kW[is.na(kW)] <- 0
   terra::units(tmpRas) <- "m/s"
-  terra::units(kW) <- "kW"
+  terra::units(kW) <- "kWh"
   terra::units(dir) <- "deg"
-  tmpRas <- rast(list(power.kW=kW,msw.ms=tmpRas,windir.deg=dir))
+  tmpRas <- rast(list(power.kWh=kW,msw.ms=tmpRas,windir.deg=dir))
   tmpRas <- mask(tmpRas,st_transform(st_buffer(dat$cent,dat$cent$roci.m),4326)|>st_shift_longitude())
   names( tmpRas) <- paste0(meth,"_",names(tmpRas))
   terra::time(tmpRas) <- rep(dat$cent$date,each=3)

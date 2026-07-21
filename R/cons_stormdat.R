@@ -20,6 +20,7 @@
 #' @importFrom dplyr if_any contains arrange
 #' @importFrom tidyr fill
 cons_stormdat <- function(dat,vars=c("wind","pres","rmw","quads","roci","poci","eye"),msw_int="1min",pref=c("USA","WMO"),fun="mean"){
+
   if ('vctrs_list_of' %in% class(dat)){listed=TRUE;dat <- lapply(dat,data.frame)|> bind_rows()}else{listed=FALSE}
   dat <- dat|>mutate(tempn = seq(1:n()))
   if (sum(grepl("WMO",pref))>1) stop("Too many WMO preference inputs. Choose either 'WMO', 'WMOfirst', or 'WMOlast'.")
@@ -59,9 +60,10 @@ cons_stormdat <- function(dat,vars=c("wind","pres","rmw","quads","roci","poci","
 }
 do_pref <- function(df,varstr,target_int,prf,fn,mod){
   if (!is.null(prf)&&any(grepl("WMO",prf))){
+    if (!"WMO_AGENCY" %in% names(df)) df$WMO_AGENCY <- "USA"
+    else df$WMO_AGENCY <- toupper(df$WMO_AGENCY)
     df <- df |>
-      mutate(WMO_AGENCY = toupper(WMO_AGENCY),
-             WMO_AGENCY= if_else(WMO_AGENCY %in% c("HURDAT_ATL","ATCF","HURDAT_EPA","CPHC"),"USA",
+      mutate(WMO_AGENCY= if_else(WMO_AGENCY %in% c("HURDAT_ATL","ATCF","HURDAT_EPA","CPHC"),"USA",
                                  if_else(WMO_AGENCY==" ",NA,WMO_AGENCY)))|>
       group_by(ID)
     ###  fill in the agency
@@ -80,8 +82,11 @@ do_pref <- function(df,varstr,target_int,prf,fn,mod){
       else if(df_int=="1min") cols <- cols1min
       else if(df_int=="2min") cols=cols2min
       else if (df_int=="3min") cols= cols3min
+      ###  only do the columns that exists in the dataset
+      cols <- grep(paste(names(df),collapse="|"),cols,value=TRUE)
       for (C in cols){
         ###  if the column is in another time interval group, model the target interval groups
+        ###  !is.null(mod[[df_int]]) should only be true if the columns exist, checked in do_interval_mods
         if (!target_int==df_int&&!is.null(mod[[df_int]])){
           m <- mod[[df_int]]
           df[!is.na(df[,C]),C] <- round(predict(m,newdata=data.frame(x=df[!is.na(df[,C]),]|>pull({{C}}))))
@@ -121,20 +126,23 @@ do_pref <- function(df,varstr,target_int,prf,fn,mod){
     }
   }
   ### for single vals
-  singlevals <- df |>
-    select(-contains("WMO"))|>
-    slice(which(rowSums(!is.na(across(contains(varstr))))==1))|>
-    mutate("{consvar}" := do.call(coalesce,across(contains(varstr))))
-  ###  a handful of WMO vals are the only vals for some reason, add those in too
-  ###  only if WMO for the current variable is available
-  if (paste0("WMO",varstr) %in% names(df)){
-    singlevals <- bind_rows(singlevals,
-                            df |>
-                              slice(which(rowSums(!is.na(across(contains(varstr))))==1&!is.na(across(contains(paste0("WMO",varstr))))))|>
-                              mutate("{consvar}" := !!!syms(paste0("WMO",varstr))))
+  if (any(grepl(varstr,names(df)))) {
+    singlevals <- df |>
+      select(-contains("WMO"))|>
+      slice(which(rowSums(!is.na(across(contains(varstr))))==1))|>
+      mutate("{consvar}" := do.call(coalesce,across(contains(varstr))))
+    ###  a handful of WMO vals are the only vals for some reason, add those in too
+    ###  only if WMO for the current variable is available
+    if (paste0("WMO",varstr) %in% names(df)){
+      singlevals <- bind_rows(singlevals,
+                              df |>
+                                slice(which(rowSums(!is.na(across(contains(varstr))))==1&!is.na(across(contains(paste0("WMO",varstr))))))|>
+                                mutate("{consvar}" := !!!syms(paste0("WMO",varstr))))
+    }
+    vals <- bind_rows(multvals,singlevals)
+  }else{
+    vals <- multvals
   }
-
-  vals <- bind_rows(multvals,singlevals)
   vals
 }
 do_interval_mods <- function(df,target_int,prf){
@@ -144,6 +152,9 @@ do_interval_mods <- function(df,target_int,prf){
   cols3 <- "NEWDELHI_WIND"
   cols <- list("10"=cols10,"1"=cols1,"2"=cols2,"3"=cols3)
   predcols <- cols[-which(gsub("min","",target_int)==c("10","1","2","3"))]
+  predcols <- lapply(predcols,function(x) grep(paste(names(df),collapse="|"),x,value=TRUE))
+  predcols <- Filter(Negate(function(x) length(x)==0),predcols)
+  if (length(predcols)==0) return(NULL)
   respcols <- cols[which(gsub("min","",target_int)==c("10","1","2","3"))]
   mods <- list()
   for (p in 1:length(predcols)){

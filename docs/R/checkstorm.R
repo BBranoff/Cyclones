@@ -18,13 +18,13 @@ checkstorm <- function(dta,agncy){
     stop("Unknown data input. Use get_storms to retrieve and/or format data for further processing.")
   }
   if (!is.null(agncy)){
-    if (!all(paste0(agncy,"_",c("WIND","PRES","RMW","ROCI","POCI","EYE","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW")) %in% names(dta))){
+    if (!all(paste0(agncy,"_",c("WIND","PRES","RMW","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW")) %in% names(dta))){
       stop(paste("The following required columns are missing: ",
-                 paste(grep(paste(names(dta),collapse="|"),paste0(agncy,"_",c("WIND","PRES","RMW","ROCI","POCI","EYE","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW")),value=TRUE,invert = TRUE),collapse=","),
+                 paste(grep(paste(names(dta),collapse="|"),paste0(agncy,"_",c("WIND","PRES","RMW","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW")),value=TRUE,invert = TRUE),collapse=","),
                  ". Change the 'agency' parameter or use 'cons_stormdat()' to consolidate and/or retain agency columns before running 'make_extents()'.",collapse=""))
     }else{
       dta <- dta |>
-        rename_with(~ gsub(paste0(agncy,"_"), "", .x), all_of(paste0(agncy,"_",c("WIND","PRES","RMW","ROCI","POCI","EYE","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW"))))
+        rename_with(~ gsub(paste0(agncy,"_"), "", .x), any_of(paste0(agncy,"_",c("WIND","PRES","RMW","ROCI","POCI","EYE","R34_NE","R34_SE","R34_SW","R34_NW","R50_NE","R50_SE","R50_SW","R50_NW","R64_NE","R64_SE","R64_SW","R64_NW"))))
     }
   }
   return(dta)

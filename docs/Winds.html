@@ -280,7 +280,17 @@ capabilities of the wind products from Cyclones. This includes:</p>
 <li>Building high resolution wind rasters at specific timesteps</li>
 <li>Compare rasters with hurricane hunter reconnaissance drop sonde
 data</li>
+<li>Building aggregate rasters representative of an entire storm’s
+lifetime.</li>
 </ul>
+<p>Wind related products are provided in a mix of both imperial (knots)
+and metric (m/s) units. This is somewhat by design. The baseline data
+for all Cyclones workflows are the tabular IBTrACS or HURDAT, both of
+which originate at the US National Hurricane Center, which uses imperial
+units. Thus, to preserve the native values, storm track products are
+provided in both knots and m/s. Downstream products, however switch to
+metric as they are already undergoing approximations and
+transformations.</p>
 <div id="get-storm-tabular-data" class="section level1">
 <h1>Get Storm Tabular Data</h1>
 <p>Use the ‘get_storms()’ function to gather the available time series,
@@ -305,7 +315,7 @@ selected by default, with the World Meteorological Organization (WMO)
 selected as the secondary choice. If those values are missing but values
 from other agencies are available, they will be used instead.
 Alternatively, users can select another agency at their discretion. This
-is done via the ‘pref’ argument, ehich can be one of: USA, WMO, TOKYO,
+is done via the ‘pref’ argument, which can be one of: USA, WMO, TOKYO,
 CMA, HKO, KMA, NEWDELHI, REUNION, BOM, NADI, WELLINGTON, DS824, TD9636,
 TD9635, NEUMANN, or MLC. See the <a
 href="https://www.ncei.noaa.gov/sites/default/files/2025-09/IBTrACS_v04r01_column_documentation.pdf">IBTrACS
@@ -386,28 +396,21 @@ windextents &lt;- make_extents(storms,mods=mods,type=c(&quot;linestrings&quot;,&
 windextent_1 &lt;- make_extents(storms[[1]],mods=mods,type=c(&quot;linestrings&quot;,
                                                           &quot;polygons&quot;))
 
-##  To apply the function to all storms, use lapply or a parallel equivalent 
-##  (snowfall::sfLapply)
+##  To apply the function to all storms, use lapply
 ##  Can also decrease the timestep from the 3-hour default, which will 
 ##  interpolate positions and meteorological data. Native, interpolated, and 
 ##  modeled data are indicated in the final product
 windextents &lt;- lapply(storms,make_extents, mods=mods,t_res=30)
 
-##  To perform internal parallelization (over individual timesteps), include the
-##  cpus argument
-##  note:: this is probably only really beneficial for very high resolution 
-##  timesteps
-windextents &lt;- lapply(storms,make_extents, mods=mods,t_res=15,cpus=10)
+##  internal parallelization (over individual timesteps), not currently supported
+##  backend processing seems to bog down the relatively quick extent calculation
 
-
-## parallel over multiple storms
-library(snowfall)
-sfInit(parallel=TRUE, cpus=3) 
-sfLibrary(sf)
-sfLibrary(terra)
-sfLibrary(dplyr)
-sfLibrary(Cyclones)
-windextents &lt;- sfLapply(storms,make_extents, mods=mods,t_res=30)
+##  parallel over multiple storms
+##  one node for each storm (3)
+initiatepar(cpus=3,type=&quot;extents&quot;)
+##  sfClusterApplyLB is quicker but may jumble the order of the storms
+##  use sfLapply to for slightly slower but same storm order
+windextents &lt;- sfClusterApplyLB(storms,make_extents, mods=mods,t_res=30)
 ##  be sure to close parallel workers
 sfStop()
 
@@ -431,10 +434,9 @@ of the extent, and the value of that extent. Location can only be either
 native or interpolated, just as the track data. But the value of the
 extent can be native, interpolated, or modeled. These are indicated in
 the source column in the order of location, value.</p>
-<p>The below samples from ‘make_extents()’ come from unmodeled (top) and
+The below samples from ‘make_extents()’ come from unmodeled (top) and
 modeled (bottom) calls. Notice the missing data in the unmodeled table
-and the difference in the ‘source’ column:</p>
-<pre><code>## Warning: Non-MODELED wind extents</code></pre>
+and the difference in the ‘source’ column:
 <div
 style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
 <table class="table table-striped table-condensed" style="margin-left: auto; margin-right: auto;">
@@ -511,7 +513,7 @@ CAMILLE_1969_NA_1969226N18280
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-17 02:30:00
+1969-08-20 22:30:00
 </td>
 <td style="text-align:right;">
 0
@@ -520,10 +522,10 @@ CAMILLE
 NA
 </td>
 <td style="text-align:right;">
-76.1312
+25.2056
 </td>
 <td style="text-align:right;">
-906.9444
+NA
 </td>
 <td style="text-align:right;">
 NaN
@@ -532,13 +534,13 @@ NaN
 NA
 </td>
 <td style="text-align:right;">
--87.44986
+-74.04971
 </td>
 <td style="text-align:right;">
-25.53338
+36.75085
 </td>
 <td style="text-align:left;white-space: nowrap;">
-LINESTRING (-648154.5 -4773…
+LINESTRING (621092.6 767997…
 </td>
 </tr>
 <tr>
@@ -561,7 +563,7 @@ CAMILLE_1969_NA_1969226N18280
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-17 18:30:00
+1969-08-17 04:00:00
 </td>
 <td style="text-align:right;">
 0
@@ -570,10 +572,10 @@ CAMILLE
 NA
 </td>
 <td style="text-align:right;">
-69.9584
+75.6168
 </td>
 <td style="text-align:right;">
-918.0000
+908.1111
 </td>
 <td style="text-align:right;">
 NaN
@@ -582,13 +584,13 @@ NaN
 NA
 </td>
 <td style="text-align:right;">
--88.71659
+-87.56652
 </td>
 <td style="text-align:right;">
-28.30001
+25.73337
 </td>
 <td style="text-align:left;white-space: nowrap;">
-POINT (-755990 -163382.4)
+POINT (-658715 -454535)
 </td>
 </tr>
 <tr>
@@ -794,7 +796,6 @@ LINESTRING (-807456.3 53543…
 </tbody>
 </table>
 </div>
-<pre><code>## Warning: MODELED wind extents</code></pre>
 <div
 style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
 <table class="table table-striped table-condensed" style="margin-left: auto; margin-right: auto;">
@@ -859,7 +860,7 @@ geometry
 ROCI
 </td>
 <td style="text-align:right;">
-299468.4
+150752.8
 </td>
 <td style="text-align:left;white-space: nowrap;">
 interpolated &amp; modeled
@@ -874,142 +875,42 @@ NA
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-19 20:00:00
+1969-08-21 05:00:00
 </td>
 <td style="text-align:right;">
-12.8600
+27.7776
 </td>
 <td style="text-align:right;">
-272244
-</td>
-<td style="text-align:right;">
-964.5161
-</td>
-<td style="text-align:right;">
-968.5960
-</td>
-<td style="text-align:right;">
-299468.4
-</td>
-<td style="text-align:right;">
--85.40027
-</td>
-<td style="text-align:right;">
-37.66743
-</td>
-<td style="text-align:left;white-space: nowrap;">
-LINESTRING (-688627.2 86908…
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-50
-</td>
-<td style="text-align:left;">
-NE
-</td>
-<td style="text-align:right;">
-62968.0
-</td>
-<td style="text-align:left;white-space: nowrap;">
-interpolated &amp; modeled
-</td>
-<td style="text-align:left;">
-CAMILLE_1969_NA_1969226N18280
-</td>
-<td style="text-align:left;">
-NA
-</td>
-<td style="text-align:left;">
-CAMILLE
-</td>
-<td style="text-align:left;white-space: nowrap;">
-1969-08-22 01:00:00
-</td>
-<td style="text-align:right;">
-27.2632
-</td>
-<td style="text-align:right;">
-57412
+55560
 </td>
 <td style="text-align:right;">
 1000.5735
 </td>
 <td style="text-align:right;">
-1017.0664
+1017.6680
 </td>
 <td style="text-align:right;">
 150752.8
 </td>
 <td style="text-align:right;">
--61.23714
+-71.36707
 </td>
 <td style="text-align:right;">
-39.43608
+36.66849
 </td>
 <td style="text-align:left;white-space: nowrap;">
-LINESTRING (1677534 1264748…
+LINESTRING (710713.8 763632…
 </td>
 </tr>
 <tr>
 <td style="text-align:right;">
-34
+30
 </td>
 <td style="text-align:left;">
-NW
+NE
 </td>
 <td style="text-align:right;">
-220388.0
-</td>
-<td style="text-align:left;white-space: nowrap;">
-native &amp; modeled
-</td>
-<td style="text-align:left;">
-CAMILLE_1969_NA_1969226N18280
-</td>
-<td style="text-align:left;">
-NA
-</td>
-<td style="text-align:left;">
-CAMILLE
-</td>
-<td style="text-align:left;white-space: nowrap;">
-1969-08-15 12:00:00
-</td>
-<td style="text-align:right;">
-46.2960
-</td>
-<td style="text-align:right;">
-38892
-</td>
-<td style="text-align:right;">
-969.0000
-</td>
-<td style="text-align:right;">
-1015.2839
-</td>
-<td style="text-align:right;">
-366696.0
-</td>
-<td style="text-align:right;">
--83.80000
-</td>
-<td style="text-align:right;">
-20.60000
-</td>
-<td style="text-align:left;white-space: nowrap;">
-LINESTRING (-513722.5 -1031…
-</td>
-</tr>
-<tr>
-<td style="text-align:right;">
-34
-</td>
-<td style="text-align:left;">
-SE
-</td>
-<td style="text-align:right;">
-248168.0
+196312.0
 </td>
 <td style="text-align:left;white-space: nowrap;">
 interpolated &amp; modeled
@@ -1024,31 +925,131 @@ NA
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-16 07:00:00
+1969-08-19 07:30:00
 </td>
 <td style="text-align:right;">
-56.0696
+15.4320
 </td>
 <td style="text-align:right;">
-31484
+196312
 </td>
 <td style="text-align:right;">
-934.5833
+944.3548
 </td>
 <td style="text-align:right;">
-994.8141
+949.3212
 </td>
 <td style="text-align:right;">
-374104.0
+215943.2
 </td>
 <td style="text-align:right;">
--85.33307
+-89.00115
 </td>
 <td style="text-align:right;">
-23.23345
+36.30038
 </td>
 <td style="text-align:left;white-space: nowrap;">
-LINESTRING (-195641.7 -7498…
+LINESTRING (-702829.6 92023…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+46
+</td>
+<td style="text-align:left;">
+NW
+</td>
+<td style="text-align:right;">
+68524.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-14 13:30:00
+</td>
+<td style="text-align:right;">
+23.6624
+</td>
+<td style="text-align:right;">
+68524
+</td>
+<td style="text-align:right;">
+1000.5735
+</td>
+<td style="text-align:right;">
+1012.8549
+</td>
+<td style="text-align:right;">
+150752.8
+</td>
+<td style="text-align:right;">
+-81.49994
+</td>
+<td style="text-align:right;">
+18.85011
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-121761.5 -1232…
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+71
+</td>
+<td style="text-align:left;">
+SE
+</td>
+<td style="text-align:right;">
+44448.0
+</td>
+<td style="text-align:left;white-space: nowrap;">
+interpolated &amp; modeled
+</td>
+<td style="text-align:left;">
+CAMILLE_1969_NA_1969226N18280
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+CAMILLE
+</td>
+<td style="text-align:left;white-space: nowrap;">
+1969-08-18 13:00:00
+</td>
+<td style="text-align:right;">
+36.5224
+</td>
+<td style="text-align:right;">
+38892
+</td>
+<td style="text-align:right;">
+914.5161
+</td>
+<td style="text-align:right;">
+945.6137
+</td>
+<td style="text-align:right;">
+342620.0
+</td>
+<td style="text-align:right;">
+-89.93316
+</td>
+<td style="text-align:right;">
+32.23335
+</td>
+<td style="text-align:left;white-space: nowrap;">
+LINESTRING (-796416.1 27730…
 </td>
 </tr>
 <tr>
@@ -1059,7 +1060,7 @@ LINESTRING (-195641.7 -7498…
 SW
 </td>
 <td style="text-align:right;">
-114824.0
+161124.0
 </td>
 <td style="text-align:left;white-space: nowrap;">
 interpolated &amp; modeled
@@ -1074,31 +1075,31 @@ NA
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-21 02:00:00
+1969-08-17 01:00:00
 </td>
 <td style="text-align:right;">
-26.7488
+76.6456
 </td>
 <td style="text-align:right;">
-57412
+22224
 </td>
 <td style="text-align:right;">
-1000.5735
+905.7778
 </td>
 <td style="text-align:right;">
-1016.4647
+999.9189
 </td>
 <td style="text-align:right;">
-150752.8
+401884.0
 </td>
 <td style="text-align:right;">
--72.73296
+-87.29978
 </td>
 <td style="text-align:right;">
-36.63490
+25.33340
 </td>
 <td style="text-align:left;white-space: nowrap;">
-LINESTRING (748876.2 648848…
+LINESTRING (-641940.7 -6612…
 </td>
 </tr>
 <tr>
@@ -1124,31 +1125,31 @@ NA
 CAMILLE
 </td>
 <td style="text-align:left;white-space: nowrap;">
-1969-08-15 16:30:00
+1969-08-15 04:30:00
 </td>
 <td style="text-align:right;">
-48.3536
+31.8928
 </td>
 <td style="text-align:right;">
-37040
+46300
 </td>
 <td style="text-align:right;">
-967.0000
+983.0000
 </td>
 <td style="text-align:right;">
-1015.9181
+1004.9075
 </td>
 <td style="text-align:right;">
-366696.0
+150752.8
 </td>
 <td style="text-align:right;">
--84.04993
+-83.14986
 </td>
 <td style="text-align:right;">
-21.10001
+19.85006
 </td>
 <td style="text-align:left;white-space: nowrap;">
-LINESTRING (-317742.8 -9811…
+LINESTRING (-226015.6 -1121…
 </td>
 </tr>
 </tbody>
@@ -1213,8 +1214,10 @@ three theoretical models, or through a more empirical Thin Plate Spline,
 which utilizes the above linestrings, and which in this case were
 generated from a set of models. Because we used models here, all methods
 should produce a set of rasters, in contrast to the simple method
-employed in the introductory vignette, which did not use models and as a
-result could not produce all methods for the older Camille storm.</p>
+employed in the <a
+href="https://bbranoff.github.io/Cyclones/index.html">introductory
+vignette</a>, which did not use models and as a result could not produce
+all methods for the older Camille storm.</p>
 <p>The ‘make_winds’ function accepts a spatial resolution specification
 and will match the temporal resolution of the input wind extents.
 Although accuracy and smoothness are optimized at higher resolutions,
@@ -1255,25 +1258,15 @@ winds &lt;- get_wind(windextents$CAMILLE_1969_NA_1969226N18280,methods=c(&quot;a
 #  parallel across multiple storms via snowfall
 #  best for low to medium resolution for multiple storms
 ####################
-library(snowfall)
-sfInit(parallel=TRUE, cpus=2) 
-## WARNING: Do not overdo the number of CPUs. Verify your machine&#39;s capacity 
-## beforehand.
-## the parallel cpus will each do one storm, so no point in giving it more cpus 
-## than there are storms to process, unless there are more storms than 
-## available cpus
-sfLibrary(sf)
-sfLibrary(terra)
-sfLibrary(dplyr)
-sfLibrary(fields) # for the TPS models
-sfLibrary(geosphere)  # for the bearing function
-sfLibrary(Cyclones)# for the current library
-#sfLibrary(snowfall) # to be able to write to log file
-winds &lt;- sfLapply(windextents,Cyclones:::get_wind,methods=&quot;all&quot;,s_res=10000,
-                  t_res=60,parallel=TRUE)
+###  one node for each storm
+initiatepar(cpus=3,type=&quot;winds&quot;)
+##  sfClusterApplyLB is quicker but may jumble the order of the storms. It will also drop the names of the original list
+##  use sfLapply to for slightly slower but same storm order and maintains names
+winds &lt;- sfClusterApplyLB(windextents,get_wind,methods=&quot;all&quot;,s_res=5000)
 sfStop()
-## unwrap
-winds &lt;- lapply(winds, function(x) lapply(x,unwrap))</code></pre>
+names(winds) &lt;- names(windextents)
+##  must unwrap when external parallel
+winds &lt;- rapply(winds,unwrap,how=&quot;list&quot;)</code></pre>
 <div class="figure">
 <img src="Winds_files/figure-html/plotwinds1-1.png" alt="Fig 3. The results of get_wind() are rasters for each timestep at the desired spatial resolution (here at 5000km). This is showing windspeed, but wind direction and power disspipation are also provided. Because we modeled the wind extents before computing the wind rasters, all methods can be used. See further below a comparison of the modeled versus non modeled results." width="864" />
 <p class="caption">
@@ -1329,6 +1322,64 @@ resulting in an inflated maximum wind area.
 </p>
 </div>
 </div>
+<div id="wind-power-and-direction" class="section level2">
+<h2>Wind Power and Direction</h2>
+<p>In addition to wind speed, ‘get_wind()’ will also return the
+direction of the wind and the power exerted by the wind. Direction is
+mostly a simple calculation of the perpendicular angle to the azimuth to
+the center of the storm, with the perpendicular direction decided by the
+hemisphere (-90, counterclockwise in the northern hemisphere and +90,
+clockwise in the southern hemisphere). The Boose method, however,
+moderates the change in direction as a function of the distance from the
+center, and also employs a cross-isobar inflow angle, with is 20 degrees
+over water and 40 degrees over land. These basically describe how the
+change in wind direction slows down further away from the center,
+especially over land.</p>
+<p>Wind power is a function of the wind speed, the duration of that
+speed, and the characteristics of the air. It is calculated as the
+maximum total theoretical wind on a given surface area, as described by
+the equation: <span class="math display">\[P = \frac{1}{2}\rho A
+v^3\]</span> where <span class="math inline">\(P\)</span> is the power
+in Watts (W), <span class="math inline">\(\rho\)</span> is the air
+density in <span class="math inline">\(\frac{kg}{m^3}\)</span>, <span
+class="math inline">\(A\)</span> is the area of the surface in <span
+class="math inline">\(m^{2}\)</span> and <span
+class="math inline">\(v\)</span> is the wind velocity in <span
+class="math inline">\(\frac{m}{s}\)</span>. Here, we calculate the power
+on 1 <span class="math inline">\(m^{2}\)</span> surface. Wind velocity
+of course is calculated via the requested method(s), leaving only the
+air density. Air density within tropical cyclones varies from lower
+(1.10 <span class="math inline">\(\frac{kg}{m^3}\)</span>) near the eye
+wall to higher (1.17 <span
+class="math inline">\(\frac{kg}{m^3}\)</span>) near the outer extent. As
+this difference is minimal relative to the much larger <span
+class="math inline">\(v^3\)</span>, it is often generalized as about
+1.15 <span class="math inline">\(\frac{kg}{m^3}\)</span>. Thus, our
+power calculation becomes: <span class="math display">\[P =
+0.575v^3\]</span></p>
+<p>However, because we also want to incorporate the duration of the
+winds on the surface, we multiply the power calculation by the time-step
+duration to get our final result in kWh. Again, this is the theoretical
+maximum power output on a 1<span class="math inline">\(m^2\)</span>
+surface. In reality, power will be dependent on the incident angle of
+the object, the shape of the object, etc. Thus, this is meant solely as
+an indication of the wind speed and duration, which can vary
+considerably as storms speed up and slow down, or as they change
+direction.</p>
+<div class="figure">
+<img src="Winds_files/figure-html/plotwinds4-1.png" alt="Fig 6. Wind direction and power are also provided by 'get_wind()'. Both variables are calculated the same across the different methods, except for Boose, which incporporates a cross-isobar inflow angle to get direction. Direction is usefull when considering wind effects across topology and can be used alongside an elevation dataset to calculate an exposure index. Power is mostly proportional to the velocity cubed and is important because it considers how long winds were present in a given area, which can also have an impact on the overall effect of the wind." width="864" />
+<p class="caption">
+Fig 6. Wind direction and power are also provided by ‘get_wind()’. Both
+variables are calculated the same across the different methods, except
+for Boose, which incporporates a cross-isobar inflow angle to get
+direction. Direction is usefull when considering wind effects across
+topology and can be used alongside an elevation dataset to calculate an
+exposure index. Power is mostly proportional to the velocity cubed and
+is important because it considers how long winds were present in a given
+area, which can also have an impact on the overall effect of the wind.
+</p>
+</div>
+</div>
 <div id="compare-winds-with-any-corresponding-drop-sondes"
 class="section level2">
 <h2>Compare Winds With Any Corresponding Drop Sondes</h2>
@@ -1367,9 +1418,9 @@ comps_r_filt &lt;- comps_r |&gt; group_by(sonde, storm, method,var) |&gt;
   filter(ZW.m==max(ZW.m,na.rm=TRUE)) |&gt;
   ungroup()</code></pre>
 <div class="figure">
-<img src="Winds_files/figure-html/compare_winds-1.png" alt="Fig 5. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="864" />
+<img src="Winds_files/figure-html/compare_winds-1.png" alt="Fig 7. get_wind() raster products compared with drop sonde data from hurricane hunter aircraft reconnaissance missions. Sondes are dropped from high elevation and take continuous measurements as they fall to the ground. The below data represent measurements that were taken within 5 minutes of the raster times and at the maximum height below 30 meters. Generally, raster images accurately reflect the dropsonde data, although there are some major discrepencies, mostly from sondes that are near or on the eye wall where wind speeds change rapidy across the profile." width="864" />
 <p class="caption">
-Fig 5. get_wind() raster products compared with drop sonde data from
+Fig 7. get_wind() raster products compared with drop sonde data from
 hurricane hunter aircraft reconnaissance missions. Sondes are dropped
 from high elevation and take continuous measurements as they fall to the
 ground. The below data represent measurements that were taken within 5
@@ -1401,12 +1452,14 @@ changes depending if the storm is over land or water. In any case, the
 comparisons are fairly similar and its not clear if there is an
 objective best.</p>
 <div class="figure">
-<img src="Winds_files/figure-html/compare_winds2-1.png" alt="Fig 6. Comparisons with drop sonde data, similar to the presented in Fig. 5, but this time for wind direction.  In this case there is no clear best option. Future work may examine the reasons for the observed deviations and attempt to employ a different method." width="864" />
+<img src="Winds_files/figure-html/compare_winds2-1.png" alt="Fig 8. Comparisons with drop sonde data, similar to the presented in Fig. 7, but this time for wind direction. In this case there is no clear best option. Future work may examine the reasons for the observed deviations and attempt to employ a different method. Wind direction is an important measure for calculating exposure, wich will also be included in future versions." width="864" />
 <p class="caption">
-Fig 6. Comparisons with drop sonde data, similar to the presented in
-Fig. 5, but this time for wind direction. In this case there is no clear
+Fig 8. Comparisons with drop sonde data, similar to the presented in
+Fig. 7, but this time for wind direction. In this case there is no clear
 best option. Future work may examine the reasons for the observed
-deviations and attempt to employ a different method.
+deviations and attempt to employ a different method. Wind direction is
+an important measure for calculating exposure, wich will also be
+included in future versions.
 </p>
 </div>
 </div>
@@ -1421,6 +1474,66 @@ individual timesteps may not be desired, they are still important for
 the aggregate calculation. As such, their temporal resolution matters.
 Less frequent time steps may result in aggregate data that appears less
 smooth than that computed with higher frequency data.</p>
+<pre class="r"><code>winds_Camille &lt;- get_wind(windextents$CAMILLE_1969_NA_1969226N18280,s_res=5000,loadrasts=TRUE)
+## or with files already saved
+winds_Camille &lt;- get_wind(&quot;CAMILLE1969_5000_30_WIND&quot;,todir=&quot;I:/Cyclone Products/Wind/v3_modeled/&quot;,loadrasts=TRUE)
+
+### take only the tps msw (maximum sustained winds) layers 
+##  use the app() function to aggregate, in this case, take the max
+Cam_tps_msw &lt;- app(winds_Camille$tps[[grepl(&quot;msw&quot;,names(winds_Camille$tps))]],fun=&quot;max&quot;,na.rm=TRUE)
+terra::plot(Cam_tps_msw,main=&quot;Hurricane Camille, 1969 - Maximum Sustained Winds (m/s)&quot;)
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_tps_msw))),add=TRUE)
+
+##  or by the multiple methods, we add a grouping step and we &#39;tapp()&#39; instead of &#39;app()&#39;
+Cam_msw &lt;- rast(lapply(winds_Camille,function(x) x[[grep(&quot;msw&quot;,names(x))]]))
+methods &lt;- unlist(sapply(strsplit(names(Cam_msw),&quot;_&quot;),&quot;[[&quot;,1))
+Cam_msw &lt;- terra::tapp(Cam_msw,index=methods,fun=&quot;max&quot;,na.rm=TRUE)
+terra::plot(Cam_msw)
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_msw))),add=TRUE)
+
+
+##  Additionally, we could take the sum of the total potential wind power 
+winds_Sinlaku &lt;- get_wind(&quot;Sinlaku2026_5000_30_WIND&quot;,todir=&quot;I:/Cyclone Products/Wind/v3_modeled/&quot;,loadrasts=TRUE)
+Sin_power &lt;- rast(lapply(winds_Sinlaku,function(x) x[[grep(&quot;power&quot;,names(x))]]))
+methods &lt;- unlist(sapply(strsplit(names(Sin_power),&quot;_&quot;),&quot;[[&quot;,1))
+Sin_power &lt;- terra::tapp(Sin_power,index=methods,fun=&quot;sum&quot;,na.rm=TRUE)
+terra::plot(Sin_power)
+terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Sin_power))),add=TRUE)
+
+###  We could also seek the duration of hurricane force winds
+###  For now, this is a custom function but future methods will include dedicated methods
+###  such as &#39;aggregate_winds()&#39;
+winds_Maria &lt;- get_wind(&quot;Maria2017_5000_30_WIND&quot;,todir=&quot;I:/Cyclone Products/Wind/v3_modeled/&quot;,loadrasts=TRUE)
+###  get this wind speeds
+## also, crop to Puerto Rico
+Mar_msw &lt;- lapply(winds_Maria ,function(x) crop(x[[grep(&quot;msw&quot;,names(x))]],st_transform(rnaturalearth::ne_countries(country=&quot;puerto rico&quot;),crs(x))))
+##  remove empty layers (storm outside of Puerto Rico)
+Mar_msw  &lt;- lapply(Mar_msw,function(x) x[[terra::global(x, fun = &quot;notNA&quot;)!=0]])
+###  we need to know the timestep, 0.5 hrs
+dt &lt;- unique(lapply(Mar_msw,function(x) unique(difftime(time(x),lag(time(x)),units=&quot;hours&quot;))))
+### remove layers that never reach hurricane force winds
+Mar_msw &lt;- lapply(Mar_msw,function(x) x[[minmax(x)[2, ]&gt;=33]])
+###  reset the msw values less than Cat 1 hurricane  speed (33 m/s) to NA and the other to the time step
+Mar_dur &lt;- lapply(Mar_msw,classify,matrix(c(0,33,NA,33,Inf,0.5),ncol=3,byrow=TRUE), include.lowest=TRUE)
+##  major hurricanes are + 50m/s
+#Mar_durMaj &lt;- lapply(Mar_msw,classify,matrix(c(0,50,NA,50,Inf,0.5),ncol=3,byrow=TRUE), include.lowest=TRUE)
+methods &lt;- unlist(sapply(strsplit(names(rast(Mar_dur)),&quot;_&quot;),&quot;[[&quot;,1))
+Mar_dur &lt;- terra::tapp(rast(Mar_dur),index=methods,fun=&quot;sum&quot;,na.rm=TRUE)
+#Mar_durMaj &lt;- terra::tapp(rast(Mar_durMaj),index=methods,fun=&quot;sum&quot;,na.rm=TRUE)
+PR &lt;- st_geometry(st_transform(rnaturalearth::ne_countries(countr=&quot;puerto rico&quot;,scale=10),crs(Mar_dur)))
+wrap_plots(~terra::plot(Sin_power))/wrap_plots(~terra::plot(Mar_dur,fun=function() lines(vect(PR))))</code></pre>
+<img src="Winds_files/figure-html/plotwinds_agg1-1.png" alt="" width="672" style="display: block; margin: auto auto auto 0;" />
+<img src="Winds_files/figure-html/plotwinds_agg2-1.png" alt="" width="672" style="display: block; margin: auto auto auto 0;" />
+<div class="figure" style="text-align: left">
+<img src="Winds_files/figure-html/plotwinds_agg3-1.png" alt="Fig 9. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind (top) as well as the total power (middle) and the duration of hurricane force winds (bottom). Aggregating can be done in many complicated ways and a dedicated agg_winds() function is forthcoming." width="672" />
+<p class="caption">
+Fig 9. Aggregating the individual time step layers from get_wind()
+produces a whole-storm perspective. In this case, the maximum wind (top)
+as well as the total power (middle) and the duration of hurricane force
+winds (bottom). Aggregating can be done in many complicated ways and a
+dedicated agg_winds() function is forthcoming.
+</p>
+</div>
 </div>
 </div>
 

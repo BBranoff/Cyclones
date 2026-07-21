@@ -18,8 +18,8 @@ get_storms(
 )
 }
 \arguments{
-\item{source}{string or data.frame input. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
-or a filename of a .csv or .nc file containing tabular cyclone data, or an already loaded data.frame. In the case of an existing data.frame, it should be consistent with
+\item{source}{string or data.frame input or pre-loaded object. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
+or a filename of a .csv or .nc file containing tabular cyclone data. Can also be pre-loaded data.frame. In the case of an existing data.frame, it should be consistent with
 IBTrACS or HURDAT format.}
 
 \item{id}{Either the SID (from IBTrACS) or the USA_ATCF_ID (from both hurdat and IBTrACS) used to identify individual storms. Results will be filtered to these values.}
@@ -33,10 +33,10 @@ IBTrACS or HURDAT format.}
 \item{ib_filt}{A filtering value for downloading specific IBTrACS data and to avoid downloading the entire dataset if not required. Valid values are:
 'ACTIVE', 'ALL', 'last3years', 'since1980', or the basins: "EP", "NA", "NI", "SA", "SI", "SP", "WP".}
 
-\item{consolidate}{To run 'cons_stormdat()' or not, to consolidate values across agencies. When TRUE, CONS_ columns will be added to represent the consolidated values and, unless
+\item{consolidate}{To run 'cons_stormdat()' or not, to consolidate values across agencies. When TRUE, 'CONS_' columns will be added to represent the consolidated values and, unless
 the 'cols' parameter requests otherwise, the original columns will be dropped. If consolidation is not run, downstream functions may fail or return unexpected results,
 as they may not be able to distinguish which columns to use. Also, for the maximum sustained wind columns, the interval period is inconsistent among agencies. Consolidation
-translates these values to a common interval.}
+translates these values to a common interval. See 'cons_stormdat()'.}
 
 \item{cols}{Which columns to retain in the output if consolidate is TRUE. Default is that only consolidated values are retained, in addition to storm identification, location,
 and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
@@ -50,7 +50,7 @@ unique identifiers for storms and used throughout Cyclones as filenames for vari
 }
 \description{
 \code{get_storms()} will accept an already loaded data frame, a filename, or a target web source to download cyclone tabular data and
-format it for processing in the Cyclones functions
+format it for processing in the Cyclones functions.
 }
 \examples{
 # default will get the last 3 years of storms from IBTrACS (ncei)
