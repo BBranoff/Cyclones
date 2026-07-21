@@ -22,6 +22,7 @@
 #' @param ... Additional arguments passed to cons_stormdat().
 #' @returns A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are
 #' unique identifiers for storms and used throughout Cyclones as filenames for various functions.
+#' @export
 #' @examples
 #' # default will get the last 3 years of storms from IBTrACS (ncei)
 #' storms <- get_storms()

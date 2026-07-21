@@ -24,6 +24,7 @@
 #' over land and water. [Willoughby, 2006]("https://doi.org/10.1175/MWR3106.1") is a piecewise function that stitches together two models, one for the inner region of the storm and another for
 #' the outer region. The algorithms for these methods were adapted from the StormR package. Finally, an interpolation method, Thin Plate Spline, can be applied to the extents constructed by
 #' 'make_extents()'. Although computationally more demanding, TPS is shown here to best generalize observations from drop sondes.
+#' @export
 #' @examples
 #' # One storm, coarse resolution, with native extents only and with consolidated values.
 #' Helene <- get_storms(name='HELENE',season=2024)

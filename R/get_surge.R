@@ -16,6 +16,7 @@
 #' @param dpath The download path of the sourced elevation and water level data. Raw files will be stored here and then searched for here before
 #' downloading from the web. An "./Elevation/" and "./Water Levels/" directory will be created for each group of data.
 #' @param cpus The number of cpus to use in parallel processing.
+#' @export
 #' @examples
 #' Sandy <- get_storms(name='Sandy',season=2012)
 #' Sandy_surge <- get_surge(Sandy,dpath="I:/")

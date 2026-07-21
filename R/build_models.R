@@ -21,6 +21,7 @@
 #' Models nested by basin and Saffir-Simpson category.
 #'
 #' For all models, variable units are native to those of USA IBTrACS variables: speed is windspeed in knots, dist is distance from center in nautical miles, and pressure is millibars.
+#' @export
 #' @examples
 #'
 #' #  build models off all IBTrACS storms
