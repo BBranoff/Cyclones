@@ -42,7 +42,7 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
     dat=source
   }else if (is.character(source)){
     if(source=="ncei") {
-      cat("Downloading IBTrACS from: https://www.ncei.noaa.gov/products/international-best-track-archive")
+      cat("Downloading IBTrACS from: https://www.ncei.noaa.gov/products/international-best-track-archive\n")
       if (is.null(season)) season = (as.numeric(format(Sys.time(),"%Y")))
       if (is.null(ib_filt)&&isTRUE(as.numeric(season)>=(as.numeric(format(Sys.time(),"%Y"))-3))) ib_filt = "last3years" else if (is.null(ib_filt)&&isTRUE(as.numeric(season)>1980)) ib_filt= "since1980"
       ## get appropriate url
