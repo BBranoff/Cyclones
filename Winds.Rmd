@@ -209,8 +209,8 @@ The above models will allow the reconstruction of certain wind and pressure exte
 ##  the functions will only perform the action on the first storm
 windextents <- make_extents(storms,mods=mods,type=c("linestrings","polygons"))
 ##  which is equivalent to
-windextent_1 <- make_extents(storms[[1]],mods=mods,type=c("linestrings",
-                                                          "polygons"))
+windextent_1 <- make_extents(storms$CAMILLE_1969_NA_1969226N18280,
+                             mods=mods,type=c("linestrings","polygons"))
 
 ##  To apply the function to all storms, use lapply
 ##  Can also decrease the timestep from the 3-hour default, which will 
@@ -872,7 +872,7 @@ wrap_plots(~terra::plot(Sin_power))/wrap_plots(~terra::plot(Mar_dur,fun=function
 winds_Camille <- get_wind("CAMILLE1969_5000_30_WIND",todir="I:/Cyclone Products/Wind/v3_modeled/",loadrasts=TRUE)
 ### take only the tps msw (maximum sustained winds) layers 
 Cam_tps_msw <- app(winds_Camille$tps[[grepl("msw",names(winds_Camille$tps))]],fun="max",na.rm=TRUE)
-terra::plot(project(Cam_tps_msw,"epsg:4326"),main="Hurricane Camille, Maximum Sustained Winds (m/s) TPS",plg = list(title = "(m/s)",title.cex=0.8),range=c(0,80))
+terra::plot(project(Cam_tps_msw,"epsg:4326"),main="Hurricane Camille, Maximum Sustained Winds (m/s) TPS",plg = list(title = "(m/s)"),range=c(0,80),cex.main=0.9)
 terra::plot(st_geometry(rnaturalearth::ne_countries()),add=TRUE)
 ```
 ```{r plotwinds_agg2,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=5,fig.align='left'}
