@@ -1,14 +1,14 @@
 Package: Cyclones
 Title: Recreate tropical cyclone conditions.
 Version: 0.0.0.9000
-Authors@R: 
+Authors@R:
     person("Benjamin", "Branoff", , "benjamin.branoff@usda.gov", role = c("aut", "cre"))
 Description: Cyclones fetches and assembles data corresponding to tropical cyclone disturbance forces. 
-Initital conditions are limited to wind, precipitation, and storm surge but future versions may be more inclusive. Any previous storm on record and
-in the IBTrACS dataset can be produced, as well as any hypothetical storm using the same data format. Methods, data sources, and final 
-product resolutions are all adjustable. Winds can be modeled when native data are sparse and final wind products can be compared against
-available drop sonde measurements from hurricane hunter reconnaisance missions. Parallel operations are possible both internally and 
-externally.
+    Initital conditions are limited to wind, precipitation, and storm surge but future versions may be more inclusive. Any previous storm on record and
+    in the IBTrACS dataset can be produced, as well as any hypothetical storm using the same data format. Methods, data sources, and final 
+    product resolutions are all adjustable. Winds can be modeled when native data are sparse and final wind products can be compared against
+    available drop sonde measurements from hurricane hunter reconnaisance missions. Parallel operations are possible both internally and 
+    externally.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8

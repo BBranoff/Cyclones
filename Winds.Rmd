@@ -17,6 +17,14 @@ Center, which uses imperial units. Thus, to preserve the native values, storm tr
 products are provided in both knots and m/s. Downstream products, however switch
 to metric as they are already undergoing approximations and transformations. 
 
+* [Get Storms](#get-storm-tabular-data)
+* [Get Wind Extents](#make-wind-extent-spatial-features)
+  * [Build Extent Models](#build-extent-models)
+  * [Make Extents](#make-wind-extent-spatial-features)
+* [Get Winds](#build-wind-rasters)
+  * [Wind Power and Direction](#wind-power-and-direction)
+* [Validate Winds](#compare-winds-with-any-corresponding-drop-sondes)
+* [Aggregate Winds](#aggregate-winds )
 
 # Get Storm Tabular Data
 Use the ‘get_storms()’ function to gather the available time series,
@@ -858,6 +866,8 @@ Mar_dur <- terra::tapp(rast(Mar_dur),index=methods,fun="sum",na.rm=TRUE)
 PR <- st_geometry(st_transform(rnaturalearth::ne_countries(countr="puerto rico",scale=10),crs(Mar_dur)))
 wrap_plots(~terra::plot(Sin_power))/wrap_plots(~terra::plot(Mar_dur,fun=function() lines(vect(PR))))
 ```
+
+
 ```{r plotwinds_agg1,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=3,fig.align='left'}
 winds_Camille <- get_wind("CAMILLE1969_5000_30_WIND",todir="I:/Cyclone Products/Wind/v3_modeled/",loadrasts=TRUE)
 ### take only the tps msw (maximum sustained winds) layers 

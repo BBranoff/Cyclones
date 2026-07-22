@@ -40,4 +40,3 @@ interpolated extents at different, usually more frequent, time steps. Unlike oth
 typically increase, rather than decrease, in parallel. Thus, parallel computation can only be performed at the storm level .
 #'
 }
-\keyword{internal}

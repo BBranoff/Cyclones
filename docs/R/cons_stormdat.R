@@ -17,6 +17,7 @@
 #' can also be used to avoid sudden changes in values.
 #' @param fun The summary function to be applied to any instances of multiple values.
 #' @returns A data frame or listed data set, whatever the input was, with new columns whose names are prefixed with 'CONS_' representing the consolidated values.
+#' @export
 #' @importFrom dplyr if_any contains arrange
 #' @importFrom tidyr fill
 cons_stormdat <- function(dat,vars=c("wind","pres","rmw","quads","roci","poci","eye"),msw_int="1min",pref=c("USA","WMO"),fun="mean"){

@@ -1,3 +1,4 @@
+#' @export
 #' @importFrom dplyr row_number filter slice_min full_join join_by
 #' @importFrom sf st_transform
 #' @importFrom terra extract crs distance minmax classify values time ext is.lonlat rotate

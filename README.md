@@ -4,7 +4,7 @@ July, 2026
 
 # Introduction
 
-For workflow vignettes, see the [documention
+For workflow vignettes, see the [documentation
 website](https://bbranoff.github.io/Cyclones/)
 
 Cyclones is a collection of R utilities for producing variable temporal

@@ -5,13 +5,20 @@ These are the workflow vignettes for the Cyclones package. [Full repositry here.
 These workflows demonstrate the primary functions of the package, with context as 
 to the reasoning behind the methods and the final products.
 
+* [Introduction](#introduction)
+* [Get Storms](#get-storm-tabular-data)
+* [Get Extents](#make-wind-and-pressure-extent-spatial-features)
+* [Get Winds](#build-wind-rasters)
+* [Get Rains](#build-precip-rasters)
+* [Get Storm Surge](#get-storm-surge)
 
-# Highlights
+
+## Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions
   * Compare calculated winds against hurricane hunter dropsondes
   
-# Future Implementation Ideas
+## Future Implementation Ideas
 * Integrate NISAR data for:
   * Soil moisture
   * Flooding extent
@@ -29,7 +36,7 @@ A note on lists, rasters, wrapping, and parallelization. Most of the functions i
 
 Parallel processing is mostly only necessary for multiple storms or for high resolution outputs and we recommend users familiarize themselves with the sequential default functions and only then utilize parallel when ready for batch processing. For internal functions, parallelism is done via snowfall at the timestep level. This is best for high resolution (both temporal (\<15 mins) and/or spatial (\<10000 m)) outputs and especially when producing Thin Plate Spline (TPS) outputs, and is probably best utilized if at least 5-10 cpus could be set aside for the effort, but there hasnt been any in-depth test of performance yet. Parallelizing at the storm level is demonstrated below in snowfall, but could be done with other libraries at the user's discretion and also could be done with only a few (\<5) cpus. The functions will not allow you to do both internal and external parallelization, but otherwise, the user is expected to know how many cpus can be safely utilized on their system.
 
-# Installation
+## Installation
 Cyclones is no yet available on CRAN but can be downloaded from Github. Probably the easiest way to do this is via the 'remotes' package.
 
 ```{r install,eval=FALSE}
@@ -64,7 +71,8 @@ library(Cyclones)
 ##  options(timeout=300)
 storms <- get_storms(source="hurdat",name="Camille",basin="NA",season=1969)
 storms <- get_storms(name=c("Maria","IRMA"),basin="NA",season=2017)
-##  from file
+
+##  from local file
 storms <- get_storms("./ibtracs.ALL.list.v04r01.csv",name=c("Maria","IRMA"),basin="NA",season=2017)
 names(storms)
 
@@ -74,6 +82,8 @@ names(storms)
 ##  require extending the timeout time
 ##  options(timeout = 300)
 allstorms <- get_storms(ib_filt="ALL")
+
+##  filter entire storm dataset for specific storms
 storms <- allstorms[grep("CAMILLE_1969|SINLAKU_2026",names(allstorms))]
 
 ## the result is a named list of data pertinent to each storm
@@ -83,7 +93,7 @@ names(storms)
 
 The 'get_storms()' function will automatically consolidate variables across agencies. If only one value is available for a given variable (for example, among the '_WIND' variable versions of USA_WIND, WMO_WIND, WELLINGTON_WIND etc.), it will be used. But many storms reflect reporting from multiple agencies that need to be consolidated in some way for further processing. Because the 'USA' variables have less missing values than the other agencies across the entire dataset, they are prioritized by default and will be used if other agency values are present. Users can otherwise provide a preference agency (WMO, TOKYO, WELLINGTON etc.) to be considered priority. If the preferred agency is not present, all the other values will be averaged as the consolidated value. However, it is important to note that the USA uses 1 minute intervals to define maximum sustained winds, while most of the rest of the world uses 10 minute intervals. Thus, the consolidation of agencies from different intervals will involve a conversion to the preference interval using a linear relationship based on the full dataset. No consolidation is achieved by setting 'consolidate' to FALSE. Other consolidation preferences can be stipulated by using arguments from the 'cons_stormdat()' function, such as 'pref' = "WMO" to preference the World Meteorological Organization values instead, or by setting 'msw_int' to "10min" to  convert all values to 10 minutes instead. Alternatively, the 'cons_stormdat()' function can be used after 'get_storms(consolidate=FALSE)'. It should be noted that most of Cyclones is currently built to ingest consolidated data, so choosing not to consolidate may impact downstream processing in unpredictable ways. 
 
-## Make Wind Extent Spatial Features
+# Make Wind And Pressure Extent Spatial Features
 In some cases, it may be desired to produce simple spatial features of important storm extents, such as the radius of maximum wind, the eye wall diameter, or the radius of the last closed isobar (ROCI). The make_extents() function will do this utilizing the native data, which is typically in 3hr intervals. The function will also interpolate data to a greater frequency using the 't_res' argument, and can incorporate models via the 'mods' argument to fill in missing extents. See the ['Winds' vignette](https://bbranoff.github.io/Cyclones/Winds.html) for more details. 
 
 ```{r false-windextents,eval=FALSE}
@@ -180,8 +190,10 @@ print(Cam/Sin)
 ```
 
 
-## Build Wind Rasters
+# Build Wind Rasters
 Next, we interpolate and/or model the winds across space and time, creating a more complete gridded representation that can be useful in any number of applications. This is accomplished through either one of three theoretical models, or through a more empirical Thin Plate Spline, which utilizes the above linestrings. The 'get_wind' function accepts a spatial resolution specification and will interpolate results to the temporal resolution of the input data. Although accuracy and smoothness are optimized at smaller resolutions, computation times suffer. For initial testing, a spatial resolution of 20000 m and a temporal resolution of 60 mins is reasonable and default. All storm layers are projected onto a Lambert Conformal Conic reference system that is centered on the storm's extent, which preserves area across large geographic regions and avoids geographic coordinate issues at the 180th meridian.
+
+'get_winds()' returns raster stacks of wind speed, wind direction, and total potential wind power for each time step in the storm's lifetime. A more detailed workflow is provided in the [Winds vignette](https://bbranoff.github.io/Cyclones/Winds.html). 
 
 ```{r false-getwinds,eval=FALSE}
 ###  the following will report multiple warnings because the Camille storm does not have any complete wind fields
@@ -202,8 +214,10 @@ winds <- lapply(winds,get_wind,todir="./Cyclone Products/Wind/",loadrasts = TRUE
 
 ###  to plot specific dates via ggplot
 Camdate = c("196908171100","196908180400","196908181200")
+###  grab only the wind speed variable (msw)
 windsCam_msw <- winds_Camille$willoughby[[grep("msw",names(winds_Camille$willoughby))]]
 windsCam_msw <- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format="%Y%m%d%H%M",tz="UTC")]]
+## convert to xyz dataframe
 windsCammsw_df <- as.data.frame(project(windsCam_msw,"epsg:4326"),xy=TRUE)
 names(windsCammsw_df)[3:5] <- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep="_")
 windsCammsw_df <- windsCammsw_df |>
@@ -276,7 +290,7 @@ print((gg1/gg2)+plot_layout(heights = c(1,2)))
 
 It may also be desired to obtain an aggregate summary of a storm, rather than or in addition to individual time steps.This can be achieved via the terra package's 'app' functionality. In this case, we simply take the maximum to determine the maximum sustained wind at any given point during the duration of the storm, or the sum to get the total power dissipation at any given point. 
 
-```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=6,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming."}
+```{r plotwinds_agg,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=6,fig.align='left',fig.cap="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds, the direction of maximum winds etc.) and a dedicated agg_winds() function is forthcoming."}
 
 ### take only the msw (maximum sustained winds) layers 
 Cam_msw <- app(winds_Camille$willoughby[[grepl("msw",names(winds_Camille$willoughby))]],fun="max",na.rm=TRUE)
@@ -294,7 +308,7 @@ terra::plot(st_geometry(st_transform(rnaturalearth::ne_countries(),crs(Cam_msw))
 ```
 
 
-## Build Precip Rasters
+# Build Precip Rasters
 Cyclone precipitation products are different from wind products in two ways: 1) They are mostly retrieved rather than calculated and assembled, and 2) they include 'predecessor' events that occur before the storm's arrival. 
 
 Precipitation can come from one of three sources: The default European Centre for Medium-Range Weather Forecasts (ecmwf), NASA's Global Precipitation Measurement Mission (gpm), or the Multi-Source Weighted-Ensemble Precipitation product (mswep). For all sources, some sort of pre-registration and subsequent configuration in R is necessary to access data. Additional packages are also necessary for API interaction at each source. These will be prompted for when required. Alternatively, data could be downloaded manually and held in the './~dpath~/~source~/' directory, ensuring original filenames are retained for loading via 'get_precip()'. 

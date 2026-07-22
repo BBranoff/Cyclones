@@ -22,6 +22,7 @@
 #' @param ... Additional arguments passed to cons_stormdat().
 #' @returns A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are
 #' unique identifiers for storms and used throughout Cyclones as filenames for various functions.
+#' @export
 #' @examples
 #' # default will get the last 3 years of storms from IBTrACS (ncei)
 #' storms <- get_storms()
@@ -41,7 +42,7 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
     dat=source
   }else if (is.character(source)){
     if(source=="ncei") {
-      cat("Downloading IBTrACS from: https://www.ncei.noaa.gov/products/international-best-track-archive")
+      cat("Downloading IBTrACS from: https://www.ncei.noaa.gov/products/international-best-track-archive\n")
       if (is.null(season)) season = (as.numeric(format(Sys.time(),"%Y")))
       if (is.null(ib_filt)&&isTRUE(as.numeric(season)>=(as.numeric(format(Sys.time(),"%Y"))-3))) ib_filt = "last3years" else if (is.null(ib_filt)&&isTRUE(as.numeric(season)>1980)) ib_filt= "since1980"
       ## get appropriate url

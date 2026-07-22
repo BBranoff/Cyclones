@@ -2,7 +2,6 @@
 ## adapted here for compatability with other functions
 #' @importFrom terra ext
 #' @importFrom dplyr nth
-#' @export
 boose <- function(L,extents,tmpRas,todir,smooth=FALSE,eye_option=NULL) {
 
   dat <- prep_theoretical_data(L,extents,tmpRas)

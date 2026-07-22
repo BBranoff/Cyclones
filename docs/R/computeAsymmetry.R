@@ -1,4 +1,4 @@
-## originally from stormR (Delaporte B, Ibanez T, Keppel G, Jullien S, Menkes C, Arsouze T (2024))
+##  originally from stormR (Delaporte B, Ibanez T, Keppel G, Jullien S, Menkes C, Arsouze T (2024))
 ##  required for Willoughby and Holland methods, which were also adapted from the same library
 
 computeAsymmetry <- function(asymmetry, wind, x, y, vx, vy, vh, r, rmw, lat) {
@@ -36,7 +36,7 @@ computeAsymmetry <- function(asymmetry, wind, x, y, vx, vy, vh, r, rmw, lat) {
 
   # New total wind speed
   tWindX <- windX + formula * mWindX
-  tWindY <- windY + formula * mWindY
+  tWindY <- windY  + formula * mWindY
 
 
   wind <- sqrt(tWindX**2 + tWindY**2)

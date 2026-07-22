@@ -10,4 +10,8 @@ test_that("csv works", {
 test_that("nc works", {
   expect_no_error(get_storms("E:/OneDrive - USDA/Hurricanes/IBTrACS.NA.v04r01.nc"))
 })
-
+test_that("consolidation prefernce works", {
+  expect_no_error(get_storms("ncei",pref="TOKYO"))
+  expect_no_error(get_storms("ncei",pref="HKO"))
+  expect_no_error(get_storms("ncei",pref="WELLINGTON",msw_int="2min"))
+})

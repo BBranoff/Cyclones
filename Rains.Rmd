@@ -2,6 +2,10 @@
 title: "Rains"
 ---
 
+* [Get Rains](#get-precipitation-products)
+* [Aggregate Rains](#aggregate-precipitation)
+
+
 # Get Precipitation Products
 The Cyclones package can also ingest and process precipitation data for all storms after 1940. There are three potential sources for the data: [the European Space Agency's ERA5 (ecmwf)](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels), [the National Aeronautics and Space Administration's (NASA) Global Precipitation Measurement Mission (gpm)](https://gpm.nasa.gov/missions/GPM), and [the Multi-Source Weighted-Ensemble Precipitation (mswep)](https://www.gloh2o.org/). All data sources require some sort of initial registration before they can be accessed via the api, as well as additional packages for extracting and assembling the data. They are global, hourly or three-hourly data at ~25 and 10 km resolution. The get_precip function will request data from the source (default is ecmwf), download it into a given directory (if specified), and then create storm specific gridded precipitation outputs. 
 
@@ -173,6 +177,8 @@ ggplot(data=r_df) +
    xlim(-90,-70)+ylim(19,35)+
    theme(axis.title = element_blank(),panel.grid=element_blank())
 ```
+
+# Aggregate Precipitation
 
 Rather than individual time steps, many researchers are only interested in the 
 aggregate rainfall over the entire course of the storm and the pre-storm period.

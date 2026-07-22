@@ -36,6 +36,7 @@
 #' Although MSWEP has the highest resolution and seems to be robust, it is proprietary and may eventually be inaccessible. Although the GPM data share the same
 #' high resolution as MSWEP, the maximum values are much higher than the other sources and this overestimation [has been noted]("https://journals.ametsoc.org/view/journals/hydr/24/10/JHM-D-22-0216.1.xml").
 #' Thus, ecmwf is used by default.
+#' @export
 #' @examples
 #' # One storm, coarse resolution, at native ~3hr intervals, all sources.
 #' # first run will be relatively slow as data is acquired

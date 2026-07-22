@@ -15,13 +15,13 @@
 #' @param type the desired class of output sf object, either 'linestrings','polygons', or 'all'.
 #' @param t_res the desired temporal resolution of the output features, in minutes.
 #' @param cpus for internal parallelization. Currently not functional as parallel not faster for make_extents().
+#' @export
 #' @returns Simple features geometry collection containing time stamped storm tracks and either linestrings, polygons, or both representing the maximum extent
 #' of wind speeds, the eye wall (if present) and the Radius of the Last Closed Isobar (ROCI). All geometries are relative to a custom coordinate reference
 #' system (crs) centered on the storm's centroid and in a Lambert azimuthal equal-area projection.
 #' @importFrom purrr possibly
 #' @importFrom dplyr last rowwise left_join join_by pull lead n all_of bind_cols
 #' @importFrom sf st_sfc st_point st_transform st_polygon st_linestring st_as_sf st_buffer st_cast st_set_geometry st_set_crs st_drop_geometry st_union st_coordinates st_geometry st_geometry_type st_multilinestring st_line_merge st_line_sample
-#' @keywords internal
 make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="CONS",cpus=NULL){
   if (!"linestrings"%in% type&(!"polygons" %in% type)&(!"all" %in% type)) stop("geometry return type unknown")
   storm <- checkstorm(storm,agency)

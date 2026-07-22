@@ -276,8 +276,17 @@ href="https://github.com/BBranoff/Cyclones">Full repositry here.</a>
 These workflows demonstrate the primary functions of the package, with
 context as to the reasoning behind the methods and the final
 products.</p>
-<div id="highlights" class="section level1">
-<h1>Highlights</h1>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#get-storm-tabular-data">Get Storms</a></li>
+<li><a href="#make-wind-and-pressure-extent-spatial-features">Get
+Extents</a></li>
+<li><a href="#build-wind-rasters">Get Winds</a></li>
+<li><a href="#build-precip-rasters">Get Rains</a></li>
+<li><a href="#get-storm-surge">Get Storm Surge</a></li>
+</ul>
+<div id="highlights" class="section level2">
+<h2>Highlights</h2>
 <ul>
 <li>Produce raster images of cyclone winds, rains, and storm surge,
 either at specific times or as aggregate
@@ -287,8 +296,8 @@ either at specific times or as aggregate
 </ul></li>
 </ul>
 </div>
-<div id="future-implementation-ideas" class="section level1">
-<h1>Future Implementation Ideas</h1>
+<div id="future-implementation-ideas" class="section level2">
+<h2>Future Implementation Ideas</h2>
 <ul>
 <li>Integrate NISAR data for:
 <ul>
@@ -333,14 +342,14 @@ discretion and also could be done with only a few (&lt;5) cpus. The
 functions will not allow you to do both internal and external
 parallelization, but otherwise, the user is expected to know how many
 cpus can be safely utilized on their system.</p>
-</div>
-<div id="installation" class="section level1">
-<h1>Installation</h1>
+<div id="installation" class="section level2">
+<h2>Installation</h2>
 <p>Cyclones is no yet available on CRAN but can be downloaded from
 Github. Probably the easiest way to do this is via the ‘remotes’
 package.</p>
 <pre class="r"><code>install.packages(&#39;remotes&#39;)
 remotes::install_github(&quot;BBranoff/Cyclones&quot;)</code></pre>
+</div>
 </div>
 <div id="get-storm-tabular-data" class="section level1">
 <h1>Get Storm Tabular Data</h1>
@@ -358,7 +367,8 @@ not, the data will be downloaded from the web.</p>
 ##  options(timeout=300)
 storms &lt;- get_storms(source=&quot;hurdat&quot;,name=&quot;Camille&quot;,basin=&quot;NA&quot;,season=1969)
 storms &lt;- get_storms(name=c(&quot;Maria&quot;,&quot;IRMA&quot;),basin=&quot;NA&quot;,season=2017)
-##  from file
+
+##  from local file
 storms &lt;- get_storms(&quot;./ibtracs.ALL.list.v04r01.csv&quot;,name=c(&quot;Maria&quot;,&quot;IRMA&quot;),basin=&quot;NA&quot;,season=2017)
 names(storms)
 
@@ -368,6 +378,8 @@ names(storms)
 ##  require extending the timeout time
 ##  options(timeout = 300)
 allstorms &lt;- get_storms(ib_filt=&quot;ALL&quot;)
+
+##  filter entire storm dataset for specific storms
 storms &lt;- allstorms[grep(&quot;CAMILLE_1969|SINLAKU_2026&quot;,names(allstorms))]
 
 ## the result is a named list of data pertinent to each storm
@@ -399,8 +411,10 @@ Alternatively, the ‘cons_stormdat()’ function can be used after
 Cyclones is currently built to ingest consolidated data, so choosing not
 to consolidate may impact downstream processing in unpredictable
 ways.</p>
-<div id="make-wind-extent-spatial-features" class="section level2">
-<h2>Make Wind Extent Spatial Features</h2>
+</div>
+<div id="make-wind-and-pressure-extent-spatial-features"
+class="section level1">
+<h1>Make Wind And Pressure Extent Spatial Features</h1>
 <p>In some cases, it may be desired to produce simple spatial features
 of important storm extents, such as the radius of maximum wind, the eye
 wall diameter, or the radius of the last closed isobar (ROCI). The
@@ -454,8 +468,8 @@ has much more native wind extents.
 </p>
 </div>
 </div>
-<div id="build-wind-rasters" class="section level2">
-<h2>Build Wind Rasters</h2>
+<div id="build-wind-rasters" class="section level1">
+<h1>Build Wind Rasters</h1>
 <p>Next, we interpolate and/or model the winds across space and time,
 creating a more complete gridded representation that can be useful in
 any number of applications. This is accomplished through either one of
@@ -470,6 +484,11 @@ projected onto a Lambert Conformal Conic reference system that is
 centered on the storm’s extent, which preserves area across large
 geographic regions and avoids geographic coordinate issues at the 180th
 meridian.</p>
+<p>‘get_winds()’ returns raster stacks of wind speed, wind direction,
+and total potential wind power for each time step in the storm’s
+lifetime. A more detailed workflow is provided in the <a
+href="https://bbranoff.github.io/Cyclones/Winds.html">Winds
+vignette</a>.</p>
 <pre class="r"><code>###  the following will report multiple warnings because the Camille storm does not have any complete wind fields
 ###  which are required for most of the different methods. Willoughby includes a theoretical calculation for the
 ###  radius of maximum winds, so it is the only method that can be used.
@@ -488,8 +507,10 @@ winds &lt;- lapply(winds,get_wind,todir=&quot;./Cyclone Products/Wind/&quot;,loa
 
 ###  to plot specific dates via ggplot
 Camdate = c(&quot;196908171100&quot;,&quot;196908180400&quot;,&quot;196908181200&quot;)
+###  grab only the wind speed variable (msw)
 windsCam_msw &lt;- winds_Camille$willoughby[[grep(&quot;msw&quot;,names(winds_Camille$willoughby))]]
 windsCam_msw &lt;- windsCam_msw[[time(windsCam_msw) %in% as.POSIXct(Camdate,format=&quot;%Y%m%d%H%M&quot;,tz=&quot;UTC&quot;)]]
+## convert to xyz dataframe
 windsCammsw_df &lt;- as.data.frame(project(windsCam_msw,&quot;epsg:4326&quot;),xy=TRUE)
 names(windsCammsw_df)[3:5] &lt;- paste(names(windsCammsw_df)[3:5],rep(unique(time(windsCam_msw))),sep=&quot;_&quot;)
 windsCammsw_df &lt;- windsCammsw_df |&gt;
@@ -531,18 +552,18 @@ take the maximum to determine the maximum sustained wind at any given
 point during the duration of the storm, or the sum to get the total
 power dissipation at any given point.</p>
 <div class="figure" style="text-align: left">
-<img src="index_files/figure-html/plotwinds_agg-1.png" alt="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind as well as the total power at each location is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds) and a dedicated agg_winds() function is forthcoming." width="672" />
+<img src="index_files/figure-html/plotwinds_agg-1.png" alt="Fig 3. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind is shown. Aggregating can be done in many complicated ways (e.g. the duration of hurricane force winds, the direction of maximum winds etc.) and a dedicated agg_winds() function is forthcoming." width="672" />
 <p class="caption">
 Fig 3. Aggregating the individual time step layers from get_wind()
-produces a whole-storm perspective. In this case, the maximum wind as
-well as the total power at each location is shown. Aggregating can be
-done in many complicated ways (e.g. the duration of hurricane force
-winds) and a dedicated agg_winds() function is forthcoming.
+produces a whole-storm perspective. In this case, the maximum wind is
+shown. Aggregating can be done in many complicated ways (e.g. the
+duration of hurricane force winds, the direction of maximum winds etc.)
+and a dedicated agg_winds() function is forthcoming.
 </p>
 </div>
 </div>
-<div id="build-precip-rasters" class="section level2">
-<h2>Build Precip Rasters</h2>
+<div id="build-precip-rasters" class="section level1">
+<h1>Build Precip Rasters</h1>
 <p>Cyclone precipitation products are different from wind products in
 two ways: 1) They are mostly retrieved rather than calculated and
 assembled, and 2) they include ‘predecessor’ events that occur before
@@ -677,7 +698,6 @@ produces a whole-storm perspective. In this case, the total accumulated
 rainfall. Aggregating can also include prestorm precipitation if
 available.
 </p>
-</div>
 </div>
 </div>
 <div id="get-storm-surge" class="section level1">
