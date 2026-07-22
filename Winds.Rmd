@@ -872,7 +872,7 @@ wrap_plots(~terra::plot(Sin_power))/wrap_plots(~terra::plot(Mar_dur,fun=function
 winds_Camille <- get_wind("CAMILLE1969_5000_30_WIND",todir="I:/Cyclone Products/Wind/v3_modeled/",loadrasts=TRUE)
 ### take only the tps msw (maximum sustained winds) layers 
 Cam_tps_msw <- app(winds_Camille$tps[[grepl("msw",names(winds_Camille$tps))]],fun="max",na.rm=TRUE)
-terra::plot(project(Cam_tps_msw,"epsg:4326"),main="Hurricane Camille, Maximum Sustained Winds (m/s) TPS",plg = list(title = "(m/s)"),range=c(0,80),title.cex=0.8)
+terra::plot(project(Cam_tps_msw,"epsg:4326"),main="Hurricane Camille, Maximum Sustained Winds (m/s) TPS",plg = list(title = "(m/s)",title.cex=0.8),range=c(0,80))
 terra::plot(st_geometry(rnaturalearth::ne_countries()),add=TRUE)
 ```
 ```{r plotwinds_agg2,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=5,fig.align='left'}
@@ -882,7 +882,7 @@ Sin_power <- rast(lapply(winds_Sinlaku,function(x) x[[grep("power",names(x))]]))
 methods <- unlist(sapply(strsplit(names(Sin_power),"_"),"[[",1))
 Sin_power <- terra::tapp(Sin_power,index=methods,fun="sum",na.rm=TRUE)
 OC <- st_geometry(rnaturalearth::ne_countries(continent="Oceania",scale=10))
-terra::panel(project(Sin_power,"epsg:4326"),main="Typhoon Sinlaku, Total Maximum Potential Wind Power",plg = list(title = "Power (kWh)"),title.cex=0.8,range=c(0,16000),fun=function() lines(vect(OC)))
+terra::panel(project(Sin_power,"epsg:4326"),plg = list(title = "Power (kWh)"),range=c(0,16000),fun=function() lines(vect(OC)))
 ```
 ```{r plotwinds_agg3,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=3,fig.align='left',fig.cap="Fig 9. Aggregating the individual time step layers from get_wind() produces a whole-storm perspective. In this case, the maximum wind (top) as well as the total power (middle) and the duration of hurricane force winds (bottom). Aggregating can be done in many complicated ways and a dedicated agg_winds() function is forthcoming."}
 ###  We could also seek the duration of hurricane force winds
@@ -906,5 +906,5 @@ methods <- unlist(sapply(strsplit(names(rast(Mar_dur)),"_"),"[[",1))
 Mar_dur <- terra::tapp(rast(Mar_dur),index=methods,fun="sum",na.rm=TRUE)
 #Mar_durMaj <- terra::tapp(rast(Mar_durMaj),index=methods,fun="sum",na.rm=TRUE)
 PR <- st_geometry(rnaturalearth::ne_countries(country="puerto rico",scale=10))
-terra::panel(project(Mar_dur,"epsg:4326"),main="Hurricane Maria, Cat 1+ Wind Duration",plg = list(title = "hrs"),range=c(0,16),fun=function() lines(vect(PR)),title.cex=0.8)
+terra::panel(project(Mar_dur,"epsg:4326"),plg = list(title = "hrs"),range=c(0,16),fun=function() lines(vect(PR)))
 ```
