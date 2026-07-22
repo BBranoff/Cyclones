@@ -868,11 +868,11 @@ wrap_plots(~terra::plot(Sin_power))/wrap_plots(~terra::plot(Mar_dur,fun=function
 ```
 
 
-```{r plotwinds_agg1,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=3,fig.align='left'}
+```{r plotwinds_agg1,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=4,fig.align='left'}
 winds_Camille <- get_wind("CAMILLE1969_5000_30_WIND",todir="I:/Cyclone Products/Wind/v3_modeled/",loadrasts=TRUE)
 ### take only the tps msw (maximum sustained winds) layers 
 Cam_tps_msw <- app(winds_Camille$tps[[grepl("msw",names(winds_Camille$tps))]],fun="max",na.rm=TRUE)
-terra::plot(project(Cam_tps_msw,"epsg:4326"),main="\nHurricane Camille, 1969\nMaximum Sustained Winds (m/s)\nTPS only",plg = list(title = "MSW (m/s)"),range=c(0,80))
+terra::plot(project(Cam_tps_msw,"epsg:4326"),main="Hurricane Camille, 1969. Maximum Sustained Winds (m/s) TPS only",plg = list(title = "MSW (m/s)"),range=c(0,80))
 terra::plot(st_geometry(rnaturalearth::ne_countries()),add=TRUE)
 ```
 ```{r plotwinds_agg2,eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,results='hide',fig.width=7,fig.height=5,fig.align='left'}
