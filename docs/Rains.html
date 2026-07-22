@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Rains</title>
+
+<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Vignettes</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="Winds.html">Winds</a>
+</li>
+<li>
+  <a href="Rains.html">Rains</a>
+</li>
+<li>
+  <a href="Storm-Surge.html">Storm Surge</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Rains</h1>
+
+</div>
+
+
+<ul>
+<li><a href="#get-precipitation-products">Get Rains</a></li>
+<li><a href="#aggregate-precipitation">Aggregate Rains</a></li>
+</ul>
+<div id="get-precipitation-products" class="section level1">
+<h1>Get Precipitation Products</h1>
+<p>The Cyclones package can also ingest and process precipitation data
+for all storms after 1940. There are three potential sources for the
+data: <a
+href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels">the
+European Space Agency’s ERA5 (ecmwf)</a>, <a
+href="https://gpm.nasa.gov/missions/GPM">the National Aeronautics and
+Space Administration’s (NASA) Global Precipitation Measurement Mission
+(gpm)</a>, and <a href="https://www.gloh2o.org/">the Multi-Source
+Weighted-Ensemble Precipitation (mswep)</a>. All data sources require
+some sort of initial registration before they can be accessed via the
+api, as well as additional packages for extracting and assembling the
+data. They are global, hourly or three-hourly data at ~25 and 10 km
+resolution. The get_precip function will request data from the source
+(default is ecmwf), download it into a given directory (if specified),
+and then create storm specific gridded precipitation outputs.</p>
+<p>Precipitation is gathered within a 500km radius around the storm
+center. <a
+href="https://link.springer.com/article/10.1007/s11069-025-07689-z">This
+is the meteorological standard</a> for determining what is
+cyclone-derived rainfall and is estimated to account for about 95%.</p>
+<p>Unlike wind, cyclone precipitation patterns are often preceded by
+“predecessor rain events” <a
+href="https://doi.org/10.1175/2010MWR3243.1">(PREs)</a>, in which moist
+tropical air is trapped and lifted by a high pressure system in front of
+the oncoming cyclone, where it then falls as significant precipitation
+around 36 hours before the arrival of cyclone derived rainfall.
+Therefore, ‘get_precip()’ will accept a numerical “prestorm” argument
+specifying the number of hours before the arrival of a cyclone for which
+to also gather precipitation. A value of TRUE will also be accepted and
+will default to 48 hours. In any case, pre-storm periods are determined
+for each pixel, depending upon when the pixel came within 500km of the
+storm center. Results will be separated into “storm” and “prestorm”
+rasters. Here, we expand upon the introductory demonstration by
+including pre-storm precipitation.</p>
+<p>First, retrieve and prepare storm data.</p>
+<pre class="r"><code>library(Cyclones)
+
+###  for filtering and plotting the data
+library(ggplot2)
+library(terra)
+library(sf)
+
+###  grab the storm data
+allstorms &lt;- get_storms(ib_filt=&quot;ALL&quot;)
+storms &lt;- allstorms[grep(&quot;FRANCES_2004|HELENE_2024&quot;,names(allstorms))]</code></pre>
+<p>As explained in the introductory vignette, precipitation comes from
+one of three data sources, all of which are free but require some
+pre-registration and setup in R.</p>
+<pre class="r"><code>##  to download precipitation data, you must first register with either ECMWF or NASA, or request access to MSWEP:
+##  [register with ECMWF for ERA5.](https://www.ecmwf.int/user/login)
+##  [register with NASA Earth Data for GPM IMERG.](https://urs.earthdata.nasa.gov/)
+##  [request access to MSWEP](https://www.gloh2o.org/)
+
+##  once registered with ECMWF, you will receive an API token that looks like this:  abcd1234-foo-bar-98765431-XXXXXXXXXX
+##  This will give you access to the data repositories.
+##  To set your api key in R and make it accessible for future use this:
+##  (This only needs to be run once per R installation and setup and should not be run every time) 
+library(ecmwfr)
+wf_set_key(key = &quot;abcd1234-foo-bar-98765431-XXXXXXXXXX&quot;)
+
+##  or, once registered at nasa earthdata, run the following with your username and password
+##  note: gpm data will take the longest, as it is provided in 30 minute intervals at 10k spatial resolution, in hdf5 format
+library(earthdatalogin)
+edl_netrc(username = &quot;XXXX&quot;,password=&quot;XXXX&quot;)
+
+##  or, once the MSWEP data has been granted, access is through Google Drive and can be granted via (follow the pop-up prompts):
+library(googledrive)
+drive_auth()</code></pre>
+<p>The system is now configured to access the data. To not have to
+re-download storm data again, store the raw precipitation files in a
+local repository (dpath). Otherwise they will be downloaded to the
+temporary directory. Likewise, write the results to disk utilizing the
+‘todir’ argument, especially when producing high resolution products.
+The default when providing a ‘todir’ is to return the filenames, but we
+can explicitly request the rasters with “loadrasts=TRUE”. We can also
+modify the time step (t_res) and the spatial resolution (s_res). In the
+introductory vignette, we did not specify the resolution, so the
+different native resolutions were returned Here, we reproject everything
+to the same resolution when we specify ‘s_res’. We also request both 24
+and 48 hour pre-storm precipitation. Finally, because we are processing
+all of the methods and using higher resolutions, we can elect a parallel
+setup using the cpus argument.</p>
+<pre class="r"><code>precip &lt;- lapply(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,todir=&quot;./products/Rains&quot;,sources=&quot;all&quot;,prestorm=c(24,48),t_res=30,s_res=10000,cpus=15)
+##  Afterwards and with the files already saved to disk, we can load them using their folder names.
+##  in this case, we have to explicitly set their names in the list for easier navigation
+precip &lt;- lapply(list(FRANCES2004=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE2024=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;./products/Rains&quot;,loadrasts = TRUE)
+
+str(precip)
+###  results are broken down by storm ID, source, and also storm and pre-storm precipitation (if desired)
+###  Because we&#39;ve chosen modern storms, all sources are available</code></pre>
+<pre><code>## Loading FRANCES2004_10000_30_PRECIP from file: %33Loading FRANCES2004_10000_30_PRECIP from file: %67Loading FRANCES2004_10000_30_PRECIP from file: %100
+## Loading HELENE2024_10000_30_PRECIP from file: %33Loading HELENE2024_10000_30_PRECIP from file: %67Loading HELENE2024_10000_30_PRECIP from file: %100</code></pre>
+<pre><code>## List of 2
+##  $ FRANCES_2004_NA_2004238N11325:List of 3
+##   ..$ ecmwf:List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   ..$ gpm  :List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   ..$ mswep:List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##  $ HELENE_2024_NA_2024268N17278 :List of 3
+##   ..$ ecmwf:List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   ..$ gpm  :List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   ..$ mswep:List of 2
+##   .. ..$ storm   :S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. ..$ prestorm:List of 2
+##   .. .. ..$ prestorm_precip_24hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]
+##   .. .. ..$ prestorm_precip_48hrs:S4 class &#39;SpatRaster&#39; [package &quot;terra&quot;]</code></pre>
+<p>We can see from the above the results are typical of Cyclones
+products, nested lists of raster stacks. The products are stored as
+storm or pre-storm files, for each precipitation source, and for each
+storm. Taking a look at only one of those shows the raster stack. In
+this case, there are 246 layers for Helene, one for each 30 minute
+interval (246/2/24 = 5.125 days). The layers are in the custom lcc
+projection and at the desired 10km spatial resolution. Sources show that
+the images were (or were not) loaded from specific files, and the time
+and units are also shown.</p>
+<pre class="r"><code>###  showing one set of raster stacks
+precip$HELENE_2024_NA_2024268N17278$ecmwf$storm</code></pre>
+<pre><code>## class       : SpatRaster 
+## size        : 342, 166, 246  (nrow, ncol, nlyr)
+## resolution  : 10000, 10000  (x, y)
+## extent      : -805088.8, 854911.2, -1483126, 1936874  (xmin, xmax, ymin, ymax)
+## coord. ref. : +proj=lcc +lat_0=26 +lon_0=-85 +lat_1=4 +lat_2=18 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs 
+## sources     : ecmwf_HELENE_2024_NA_2024268N17278_202409231200.tif  
+##               ecmwf_HELENE_2024_NA_2024268N17278_202409231230.tif  
+##               ecmwf_HELENE_2024_NA_2024268N17278_202409231300.tif  
+##               ... and 243 more sources
+## names       : ecmwf~ative, ecmwf~nterp, ecmwf~ative, ecmwf~nterp, ecmwf~ative, ecmwf~nterp,      ... 
+## min values  :    0.000000,    0.000000,    0.000000,     0.00000,    0.000000,    0.000000,      ... 
+## max values  :    5.166937,    4.923622,    4.680307,     4.01467,    3.633894,    3.738467,      ... 
+## unit        : mm/0.5hr 
+## time        : 2024-09-23 12:00:00 to 2024-09-28 14:30:00 UTC (246 steps)</code></pre>
+<p>We could also get the precipitation for storms in parallel if
+desired. This would be most useful when processing many storms,
+effectively taking the same time to process 5 storms (when utilizing 5
+cpus) as it would to process 1. Unfortunately, Snowfall does not support
+writing progress to the console, so all processing in parallel is
+silent. Other parallel libraries should also be capable of this, but
+they have not been tested extensively.</p>
+<pre class="r"><code>##  initiate parallel
+##  in this simple case just our two storms, so only 2 cpus necessary
+initiatepar(cpus=2,type=&quot;precip&quot;)
+##  sfClusterApplyLB is quicker but may jumble the order of the storms. It will also drop the names of the original list
+##  use sfLapply to for slightly slower but same storm order and maintains names
+precip_par &lt;- sfClusterApplyLB(storms,get_precip,dpath=&quot;./data/Precipitation&quot;,sources=&quot;ecmwf&quot;,prestorm=TRUE,t_res=30,s_res=10000)
+sfStop()
+names(precip_par) &lt;- names(storms)
+##  remember to close the worker nodes
+sfStop()
+precip_par</code></pre>
+<pre><code>## $FRANCES_2004_NA_2004238N11325.ecmwf.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.ecmwf.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.ecmwf.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.gpm.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.gpm.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.gpm.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.mswep.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.mswep.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $FRANCES_2004_NA_2004238N11325.mswep.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.ecmwf.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.ecmwf.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.ecmwf.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.gpm.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.gpm.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.gpm.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.mswep.storm
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.mswep.prestorm.prestorm_precip_24hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;
+## 
+## $HELENE_2024_NA_2024268N17278.mswep.prestorm.prestorm_precip_48hrs
+## [1] &quot;This is a PackedSpatRaster object. Use &#39;terra::unwrap()&#39; to unpack it&quot;</code></pre>
+<p>In the above output, note that the products are wrapped (packed)
+because the parent call was in parallel and we did not supply a ‘todir’.
+As raster products cannot be passed from worker nodes, they need to be
+wrapped before output. Therefore, we need to unwrap these. An
+alternative would be to save the products via ‘todir’ and then load them
+again via the above outlined process.</p>
+<pre class="r"><code>##  unwrap the packed raster products from a parallel call
+##  here we use rapply because there are sometimes nested levels when multiple prestorm times are requested
+precip &lt;- rapply(precip_par, unwrap)</code></pre>
+<p>With the precipitation products processed, we can examine the
+results. To aid in comparing sources and time periods, this is
+demonstrated via ggplot, which requires some manipulation of the raster
+images into data frames. But base plot can also easily be used to
+visualize the raster products.</p>
+<pre class="r"><code>###  read in the files saved to disk
+precip &lt;- lapply(list(FRANCES_2004_NA_2004238N11325=&quot;FRANCES2004_10000_30_PRECIP&quot;,HELENE_2024_NA_2024268N17278=&quot;HELENE2024_10000_30_PRECIP&quot;),get_precip,todir=&quot;I:/Cyclone Products/Precip&quot;,loadrasts = TRUE)</code></pre>
+<pre><code>## Loading FRANCES2004_10000_30_PRECIP from file: %33Loading FRANCES2004_10000_30_PRECIP from file: %67Loading FRANCES2004_10000_30_PRECIP from file: %100
+## Loading HELENE2024_10000_30_PRECIP from file: %33Loading HELENE2024_10000_30_PRECIP from file: %67Loading HELENE2024_10000_30_PRECIP from file: %100</code></pre>
+<pre class="r"><code>###  convert to data frame, this time only for FRANCES
+r_df &lt;- rapply(precip$FRANCES_2004_NA_2004238N11325,function(r){
+  as.data.frame(project(r[[time(r)==as.POSIXct(&quot;2004-09-04 01:00&quot;)]],&quot;epsg:4326&quot;),xy=TRUE)|&gt;
+    tidyr::pivot_longer(cols=3,names_to=&quot;layer&quot;)
+  }, how=&quot;list&quot;)
+r_df &lt;- unlist(r_df,recursive=FALSE)
+
+###  join all layers (storm and prestorm) to same df
+r_df &lt;- bind_rows(
+  ##  storm data
+  bind_rows(r_df[grep(&quot;prestorm&quot;,names(r_df),invert=TRUE,value=TRUE)]),
+  ##  prestorm data, has an extra nesting level if two prestorm periods were chosen
+  bind_rows(unlist(r_df[grep(&quot;prestorm&quot;,names(r_df),value=TRUE)],recursive=FALSE))
+  )
+
+##  for display faceting, add in the method and time-period 
+r_df$method &lt;- sapply(strsplit(r_df$layer,&quot;_&quot;),&quot;[[&quot;,1)
+r_df$period &lt;- sapply(strsplit(r_df$layer,&quot;_&quot;),&quot;[[&quot;,2)
+
+##plot
+ggplot(data=r_df) +
+   geom_raster(aes(x=x,y=y,fill=value))+
+   facet_grid(method~period)+
+   scale_fill_viridis_c(n=10,na.value = &quot;transparent&quot;,name=&quot;Rainfall\n(mm/0.5hr)&quot;)+
+   coord_sf(crs =&quot;+proj=robin +lon_0=180&quot;)+
+   theme_bw()+
+   geom_sf(data=rnaturalearth::ne_countries(scale=50,country = c(&quot;united states of america&quot;,&quot;the bahamas&quot;)),fill=NA,col=&quot;black&quot;)+
+   ggtitle(&quot;Hurricane Frances-2004, Precipitation&quot;)+
+   xlim(-90,-70)+ylim(19,35)+
+   theme(axis.title = element_blank(),panel.grid=element_blank())</code></pre>
+<div class="figure">
+<img src="Rains_files/figure-html/get_precip_plot-1.png" alt="Fig 1. The results of get_precip() are individual rasters representing the rainfall for each time step in the requested frequency, in this case every 30 minutes. Notice the differences between the precipitation sources. GPM has been noted to overestimate extreme rainfall. Because we also requested prestorm precipitation, the area of interest is expanded to where the storm will be over the next 24 hours and 48 hours. In the case of Frances, most of the storm rainfall fell over the Bahamas, with little prestorm precipitation at that time. Fig 2 demonstrates the case of Helene, which had a significant predecessor rain event." width="864" />
+<p class="caption">
+Fig 1. The results of get_precip() are individual rasters representing
+the rainfall for each time step in the requested frequency, in this case
+every 30 minutes. Notice the differences between the precipitation
+sources. GPM has been noted to overestimate extreme rainfall. Because we
+also requested prestorm precipitation, the area of interest is expanded
+to where the storm will be over the next 24 hours and 48 hours. In the
+case of Frances, most of the storm rainfall fell over the Bahamas, with
+little prestorm precipitation at that time. Fig 2 demonstrates the case
+of Helene, which had a significant predecessor rain event.
+</p>
+</div>
+</div>
+<div id="aggregate-precipitation" class="section level1">
+<h1>Aggregate Precipitation</h1>
+<p>Rather than individual time steps, many researchers are only
+interested in the aggregate rainfall over the entire course of the storm
+and the pre-storm period. We can use terra’s ‘app()’ function to
+aggregate layers. In this case, we demonstrate the total accumulated
+precipitation by summing all layers, but any number of custom functions
+could be used.</p>
+<pre class="r"><code>###  apply the &#39;app()&#39; function and reproject (for easier plotting) over all rasters in the list
+agg_df &lt;- rapply(precip$HELENE_2024_NA_2024268N17278,function(r){
+  as.data.frame(project(app(r,fun=&quot;sum&quot;,na.rm=TRUE),&quot;epsg:4326&quot;),xy=TRUE)|&gt;
+    mutate(method=unique(strsplit(names(r),&quot;_&quot;)[[1]][1]),
+           period=gsub(&quot;/0.5hr&quot;,&quot;&quot;,unique(strsplit(names(r),&quot;_&quot;)[[1]][2])))
+  }, how=&quot;list&quot;)
+
+###  flatten the list
+agg_df &lt;- unlist(agg_df,recursive=FALSE)
+##  combine everything into the same dataframe
+agg_df &lt;- bind_rows(
+  ##  storm data
+  bind_rows(agg_df[grep(&quot;prestorm&quot;,names(agg_df),invert=TRUE,value=TRUE)]),
+  ##  prestorm data, has an extra nesting level if two prestorm periods were chosen
+  bind_rows(unlist(agg_df[grep(&quot;prestorm&quot;,names(agg_df),value=TRUE)],recursive=FALSE))
+  )
+
+ggplot(data=agg_df) +
+   geom_raster(aes(x=x,y=y,fill=sum))+
+   facet_grid(period~method)+
+   scale_fill_viridis_c(n=10,na.value = &quot;transparent&quot;,name=&quot;Cumulative\nRainfall\n(mm)&quot;,
+                        limits=c(0,250))+
+   coord_sf(crs =&quot;+proj=robin +lon_0=180&quot;)+
+   theme_bw()+
+   geom_sf(data=st_geometry(rnaturalearth::ne_countries()),fill=NA,col=&quot;black&quot;)+
+   ggtitle(&quot;Hurricane Helene (2024) Aggregate Precipitation&quot;)+
+   xlim(-95,-75)+ylim(10,45)+
+   theme(axis.title = element_blank(),panel.grid=element_blank())</code></pre>
+<div class="figure">
+<img src="Rains_files/figure-html/get_precip_agg-1.png" alt="Fig 2. Aggregating over all layers from the product of 'get_precip()' provides cumulative summaries of the entire storm, rather than specific time steps. Here, the prestorm precipitation in Appalachia from Hurricane Helene is equivalent to the storm derived rainfall in the Yucatan Channel. This PRE event is noted to be largely responsible for much of the disturbance caused by Helene in the Appalachian region, which received only modest wind speeds. The GPM maximum values have been clipped due to the previously noted tenency to overestimate extreme values and to better demonstrate the other sources." width="864" />
+<p class="caption">
+Fig 2. Aggregating over all layers from the product of ‘get_precip()’
+provides cumulative summaries of the entire storm, rather than specific
+time steps. Here, the prestorm precipitation in Appalachia from
+Hurricane Helene is equivalent to the storm derived rainfall in the
+Yucatan Channel. This PRE event is noted to be largely responsible for
+much of the disturbance caused by Helene in the Appalachian region,
+which received only modest wind speeds. The GPM maximum values have been
+clipped due to the previously noted tenency to overestimate extreme
+values and to better demonstrate the other sources.
+</p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
