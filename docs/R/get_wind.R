@@ -40,10 +40,10 @@
 #' @importFrom sf st_coordinates st_as_sfc st_sf st_crs st_shift_longitude st_geometry_type
 #' @importFrom terra rast res ext extend approximate setValues shift resample app allNA ifel time rotate wrap sources crs project
 get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
-                     todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=FALSE){
+                     todir=NULL,overwrite=FALSE,smooth=FALSE,eye_option="maxwind",loadrasts=FALSE,agg=FALSE){
   if (!is.null(cpus)){parallel <- TRUE;on.exit(sfStop())}else{parallel <- FALSE}
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(stormextent)[1]=="character") return(deliver_wind(winds=NULL,track=stormextent,todir=todir,loadrsts=loadrasts))
+  if (class(stormextent)[1]=="character") return(deliver_wind(winds=NULL,track=stormextent,overwrite=overwrite,todir=todir,loadrsts=loadrasts,aggregate=agg))
   ###  this must be done before the directory/file check
   ###  if multiple storms are passed to the function,
   if (is.null(dim(stormextent))){
@@ -134,7 +134,7 @@ get_wind <- function(stormextent,s_res=20000,methods=NULL,cpus=NULL,
     cat("\n")
     msw <- Filter(Negate(is.null), msw)
     msw <- unlist(interp_rast(msw,stormextent,parallel))
-    msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel)
+    msw <- deliver_wind(msw,stormextent,newdir,meth,overwrite,loadrasts,ex_parallel,agg)
     winds=append(winds,list(msw))
     cat("\n")
   }
@@ -179,6 +179,7 @@ initiatepar <- function(cpus,type="wind"){
     if (type=="extents"){
       sfLibrary(purrr)
       sfLibrary(tidyr)
+      sfLibrary(zoo)
       #exp_model_extent <- Cyclones:::model_extent
       #sfExport("exp_model_extent")
       #exp_stdh_cast_substring <- Cyclones:::stdh_cast_substring
@@ -197,24 +198,31 @@ parallelwind <- function(dates,cents, r,meth,eye_option) {
   msw <- sfClusterApplyLB(seq_along(dates),meth, cents, r,eye_option=eye_option)
   msw
 }
-deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel){
+
+deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel,aggregate){
   # if just loading the rasters from file
  if (is.null(winds)){
     if (is.null(todir)){
       todir=getwd()
     }
-    meths <- list.dirs(paste0(todir,"/",track,"/"))[-1]
-    winds = list.files(paste0(todir,"/",track,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+    meths <- list.dirs(paste0(todir,"/",track,"_WIND/"))[-1]
+    winds <- list.files(paste0(todir,"/",track,"_WIND/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+    winds <- grep("aggregate",winds,value = TRUE,invert = TRUE)
+    basename <- unique(unlist(lapply(strsplit(basename(winds),"_"), function(x) paste0(x[1:5],collapse="_"))))
     if (length(winds)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
     out <- list()
     for (m in meths){
       winds = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
       if (length(winds)>0){
-        if (loadrsts) winds = rast(winds)
+        if (loadrsts|aggregate) winds = rast(winds)
         out <- append(out,list(winds))
       }
     }
     names(out) <- basename(meths)
+    if (aggregate){
+      out=aggregate_product(out,type="wind")
+      if (overwrite) lapply(seq_along(out),function(x) writeRaster(out[[x]],paste0(meths,"/",basename,"_aggregate_",names(out)[x],".tif"),overwrite=TRUE))
+    }
     return(out)
   }
   if (class(winds[[1]])!="character") {
@@ -222,24 +230,31 @@ deliver_wind <- function(winds,track,todir,source,overwrite,loadrsts,ex_parallel
     ###  only keep the files that arent already saved if overwrite is FALSE?
     ### can only do this if out of parallel
     ### for parallel, saving is done once all files are assembled
-    tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M",tz="UTC"),".tif")
-    if (!is.null(todir)){
-      cat(paste0("Saving to: ",todir,".","\n"))
-      if (!overwrite){
-        cat("Overwrite set to FALSE, existing files will be SKIPPED.\n")
-        if (!all(file.exists(tofiles))) {
-          winds <- winds[!file.exists(tofiles)]
-          tofiles <- tofiles[!file.exists(tofiles)]
+    if (aggregate){
+      winds <- list(rast(winds)) # to mimick the lists supplied by multi-method load
+      winds=aggregate_product(winds,type="wind")
+      if (overwrite) lapply(seq_along(winds),function(x) writeRaster(winds[[x]],paste0(todir,"/",unique(track$ID),"_aggregate_",names(winds)[x],".tif"),overwrite=TRUE))
+    }else{
+      tofiles <- paste0(todir,"/",source,"_",unique(track$ID),"_",format(as.POSIXct(unique(unlist(lapply(winds,terra::time)))),"%Y%m%d%H%M",tz="UTC"),".tif")
+      if (!is.null(todir)){
+        cat(paste0("Saving to: ",todir,".","\n"))
+        if (!overwrite){
+          cat("Overwrite set to FALSE, existing files will be SKIPPED.\n")
+          if (!all(file.exists(tofiles))) {
+            winds <- winds[!file.exists(tofiles)]
+            tofiles <- tofiles[!file.exists(tofiles)]
+            lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
+          }
+        }else{
+          cat("Overwrite set to TRUE, existing files will be REPLACED.\n")
           lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
         }
-      }else{
-        cat("Overwrite set to TRUE, existing files will be REPLACED.\n")
-        lapply(1:length(winds),function(x) writeRaster(winds[[x]],tofiles[x],overwrite=overwrite))
       }
     }
   }else{
    winds <- unlist(winds)
   }
+  #if (aggregate) winds=aggregate_product(winds,type="wind") ## this cant be here because its already above
   if (loadrsts|is.null(todir)){
     if (ex_parallel) return(wrap(rast(winds)))
     else(return(rast(winds)))

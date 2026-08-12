@@ -1,4 +1,4 @@
-#' @importFrom sf sf_use_s2 st_intersects
+#' @importFrom sf sf_use_s2 st_intersects read_sf st_combine
 #' @importFrom terra mosaic
 #' @importFrom earthdatalogin edl_download
 get_srtm <- function(storm,dpath=NULL,coastonly=TRUE){
@@ -36,10 +36,18 @@ get_srtm <- function(storm,dpath=NULL,coastonly=TRUE){
   aoi_t <- sf::st_make_grid(aoi, cellsize=1)
   suppressMessages({
     sf_use_s2(FALSE)
-    aoi_t <- aoi_t[which(lengths(st_intersects(aoi_t,extnt))>0),]|>st_as_sf()
-    aoi_t_land <- aoi_t[which(lengths(st_intersects(aoi_t,rnaturalearth::ne_countries(scale=50)))>0),]|>st_as_sf()
-    coast <- rnaturalearth::ne_coastline(scale=50)
-    aoi_t_coast <- aoi_t[which(lengths(st_intersects(aoi_t,st_transform(st_buffer(st_transform(coast,st_crs(storm)),.75),4326)))>0),]|>st_as_sf()
+    #aoi_t <- aoi_t[which(lengths(st_intersects(aoi_t,extnt))>0),]|>st_as_sf()
+    aoi_t <- sf::st_filter(st_as_sf(aoi_t), sf::st_wrap_dateline(extnt), .predicate = st_intersects)
+    aoi_t_land <- sf::st_filter(aoi_t, rnaturalearth::ne_countries(scale=10), .predicate = st_intersects)
+    #aoi_t_land <- aoi_t[which(lengths(st_intersects(aoi_t,rnaturalearth::ne_countries(scale=10)))>0),]|>st_as_sf()
+    ## scale of 50 misses some of the smaller islands
+    coast <- rnaturalearth::ne_coastline(scale=10)|>st_geometry()
+
+    MinorIslands <- read_sf("/vsizip//vsicurl/https://naciscdn.org/naturalearth/10m/physical/ne_10m_minor_islands.zip",
+                                        layer = "ne_10m_minor_islands")
+    coast <- st_combine(c(coast,MinorIslands|>st_geometry()))
+    #aoi_t_coast <- aoi_t[which(lengths(st_intersects(aoi_t,coast))>0),]|>st_as_sf()
+    aoi_t_coast <- sf::st_filter(aoi_t, coast, .predicate = st_intersects)
     aoi_t_coast <- aoi_t_coast[aoi_t_coast$x %in% aoi_t_land$x,]
     sf_use_s2(TRUE)
   })
@@ -66,7 +74,12 @@ get_srtm <- function(storm,dpath=NULL,coastonly=TRUE){
       r=rast(gsub(".SRTMGL3.|.zip","",dfiles[f]))
     }else{
       r <- downr(us[f],dfiles[f])
-      if (!is.null(r)) r=rast(r)
+      if (!is.null(r)){
+        unzip(dfiles[f],exdir=dirname(dfiles[f]))
+        file.remove(dfiles[f])
+        r <- gsub(".SRTMGL3.|.zip","",dfiles[f])
+        r=rast(r)
+      }
     }
     cat("\rDownloading/loading NASA SRTM elevation: %",round(100*f/length(us),1))
     if (!is.null(r)){

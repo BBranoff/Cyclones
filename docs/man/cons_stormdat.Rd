@@ -21,8 +21,8 @@ wind extents of 34, 50, and 64 knot winds in the NE, SE, SW, and NW quadrants.}
 
 \item{msw_int}{The target interval for the maximum sustained winds, which is not consistent among the agencies. The USA uses a one-minute
 interval, most other agencies use a 10-minute interval, but 2-minute and 3-minute intervals are also used. When consolidating the wind columns,
-linear models are used to translate any values whose interval is not the target interval. The models are computed from all rows in which multiple
-interval values are provided.}
+linear models are used to translate any values whose interval is not the target interval. The models were computed from the complete data set of all storms.
+If new models are desired, adding ".new" to the interval will calculate the models from 'dat'. Beware, if 'dat' is limited, such models may not be accurate.}
 
 \item{pref}{Agency preferences for all values, listed in order of preference. If these values are present, they will be used (after conversion to the
 target interval). These can be any of the agency or model abbreviations in the IBTrACS data (USA, WMO, TOKYO, CMA, HKO, KMA, NEWDELHI, REUNION, BOM,
@@ -38,4 +38,18 @@ A data frame or listed data set, whatever the input was, with new columns whose 
 \code{cons_stormdat()} will accept a singular data frame sourced from IBTrACS or a listed data set produced by 'get_storms()' and will consolidate
 the desired variables across the various agencies into one column. In the case of multiple values for a given variable, either the preferred agency
 is used or a function is applied to summarise the values.
+}
+\examples{
+#  retrieving the raw unconsolidated data
+storms <- get_storms(cons=FALSE)
+
+# giving TOKYO values preference
+storms_TOKYO <- cons_stormdat(storms,pref="TOKYO")
+
+# translating msw values to 10 min interval
+storms_10min <- cons_stormdat(storms,msw_int='10min')
+
+#compare
+plot(unlist(lapply(storms_TOKYO,function(x) x$CONS_WIND)), unlist(lapply(storms_10min,function(x) x$CONS_WIND)))
+plot(unlist(lapply(storms,function(x) x$USA_WIND)), unlist(lapply(storms_10min,function(x) x$CONS_WIND)))
 }

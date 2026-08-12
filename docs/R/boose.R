@@ -3,7 +3,6 @@
 #' @importFrom terra ext
 #' @importFrom dplyr nth
 boose <- function(L,extents,tmpRas,todir,smooth=FALSE,eye_option=NULL) {
-
   dat <- prep_theoretical_data(L,extents,tmpRas)
   cent <- dat$cent
   msw <- dat$msw
@@ -11,11 +10,10 @@ boose <- function(L,extents,tmpRas,todir,smooth=FALSE,eye_option=NULL) {
   tmpRas <- dat$tmpRas
   rho <- 1 # air density
   b <- rho * exp(1) * msw**2 / dat$deltP
-
   ###  using higher resolution (l=50) reduces speed significantly
-  land <- rnaturalearth::ne_countries() |> st_cast("POLYGON")|>
+  land <- suppressWarnings(rnaturalearth::ne_countries() |> st_cast("POLYGON")|>
     st_transform(crs(tmpRas))|>
-    rasterize(y=tmpRas,field=1,background=0)
+    rasterize(y=tmpRas,field=1,background=0))
   vr <- sqrt((dat$rmw / dat$vr)**b * exp(1 - (dat$rmw / dat$vr)**b))
   vx <- cent |> pull(vxDeg_geo)
   vy <- cent |> pull(vyDeg_geo)

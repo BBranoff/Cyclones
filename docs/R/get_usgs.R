@@ -8,14 +8,19 @@ get_usgs <- function(storm,key=NULL,dpath=NULL){
   storm <- st_as_sf(storm,coords=c("LON","LAT"),crs=4326)
   roci <- storm |> pull(contains("CONS_ROCI"))|>mean(na.rm=TRUE)
   if (is.na(roci)) roci <- 500000/1852
-  extnt <- st_transform(st_union(st_geometry(st_buffer(storm,as.numeric(roci)*1852))),4326)
-  bbox <- st_bbox(extnt)#st_bbox(c(-67.34398,17.88728,-65.3330,18.52592))#PR
-  ##  using dataRetrieval pacakge
-  statdets <- jsonlite::fromJSON(paste0("https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?bbox=",
-                                        paste(bbox,collapse=","),"&limit=10000&f=json&site_type=Estuary&api_key=",key))
-  statdets <- statdets$features
-  if (length(statdets)==0){warning("No USGS data available for this storm."); return(NULL)}
+  extnt <- sf::st_wrap_dateline(st_transform(st_union(st_geometry(st_buffer(storm,as.numeric(roci)*1852))),4326))|>st_cast("POLYGON")
+  statdets <- lapply(extnt,function(x){
+    bbox <- st_bbox(x)#st_bbox(c(-67.34398,17.88728,-65.3330,18.52592))#PR
+    ##  using dataRetrieval pacakge
+    statdets <- jsonlite::fromJSON(paste0("https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?bbox=",
+                                          paste(bbox,collapse=","),"&limit=10000&f=json&site_type=Estuary&api_key=",key))
+    statdets$features
+  })
+  if (all(lengths(statdets)==0)){warning("No USGS data available for this storm."); return(NULL)}
   #statdets_missingdatum <- statdets$properties$id[is.na(statdets$properties$vertical_datum)]
+  statdets <- statdets[lengths(statdets) > 0]
+  statdets <- dplyr::bind_rows(statdets)
+  ##  if there are too many features, need to split
   if (length(unique(statdets$id))>75) ids <- split(unique(statdets$id),cut(seq_along(unique(statdets$id)), ceiling(length(unique(statdets$id))/75), labels = FALSE))
   else ids <- unique(statdets$id)
   statmet <- lapply(seq_along(ids), function(i) {

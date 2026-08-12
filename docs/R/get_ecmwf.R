@@ -1,8 +1,8 @@
-get_ecmwf <- function(cent,dfiles=NULL,dpath=tempdir()){
+get_ecmwf <- function(cent,dpath=tempdir(),dfiles=NULL,GC=FALSE){
   ###  times in ecmwfr are for the previous hour, so no need to change for consistency with the other sources (which are for the next hour or three hours)
   times = sort(seq(min(cent$date,na.rm=TRUE),max(cent$date,na.rm=TRUE),by=unique(as.numeric(cent$dt)[!is.na(as.numeric(cent$dt))])*60*60))
   id = unique(cent$ID[!is.na(cent$ID)])
-  ext <- st_bbox(st_transform(st_buffer(cent,500000),4326))
+  ext <- st_bbox(st_shift_longitude(st_transform(st_buffer(cent,500000),4326)))
   ##  get the rounded min max lat and lon
   ext[1:2] <- floor(ext[1:2])
   ext[3:4] <- ceiling(ext[3:4])
@@ -34,13 +34,19 @@ get_ecmwf <- function(cent,dfiles=NULL,dpath=tempdir()){
     dfiles <- list.files(dpath,recursive=TRUE,pattern="ecmwf",full.names=TRUE)
     dfiles <- dfiles[grep(id,dfiles)]
   }
-  if (length(dfiles)>0&&any(lengths(strsplit(basename(dfiles),"_"))>=7))  dfiles <- dfiles[which(lengths(strsplit(basename(dfiles),"_"))>=7)];dfiles <- dfiles[format(as.Date(gsub(".grib","",sapply(strsplit(basename(dfiles),"_"),"[[",7))),"%j") %in% format(cent$date,"%j")]
+  if (length(dfiles)>0&&any(lengths(strsplit(basename(dfiles),"_"))>=7))  dfiles <- dfiles[which(lengths(strsplit(basename(dfiles),"_"))>=7)];dfiles <- dfiles[format(as.Date(gsub(".grib|.tif","",sapply(strsplit(basename(dfiles),"_"),"[[",7))),"%j") %in% format(cent$date,"%j")]
+  ###  cant mix ecmwf and ecmwf_GC, extents are slightly different
+  ##  so remove one if the other is present
+  if (GC&any(grepl(".grib",dfiles))){ file.remove(dfiles[grep(".grib",dfiles)]);dfiles <- character(0)}
+  if (!GC&any(grepl(".tif",dfiles))){ file.remove(dfiles[grep(".tif",dfiles)]);dfiles <- character(0)}
+
   ###  if all of the files are already downloaded, just use those
-  if (all(paste0("precip_ecmwf_",id,"_",unique(format(times,"%Y-%m%-%d")),".grib") %in% basename(dfiles))){
+  if (all(paste0("precip_ecmwf_",id,"_",unique(format(times,"%Y-%m%-%d")),".grib") %in% basename(dfiles))|
+      all(paste0("precip_ecmwf_",id,"_",unique(format(times,"%Y-%m%-%d")),".tif") %in% basename(dfiles))){
     requests <- list(done=dfiles)
     ##  if only some of them, download the missing ones
-  }else if(any(paste0("precip_ecmwf_",id,"_",unique(format(times,"%Y-%m%-%d")),".grib") %in% basename(dfiles))){
-    requests <- list(done=dfiles,request=requests[!paste0(sapply(requests,"[[",11),".grib") %in%basename(dfiles)])
+  }else if(any(paste0("precip_ecmwf_",id,"_",unique(format(times,"%Y-%m%-%d")),rep(c(".grib",".tif"),each=length(unique(format(times,"%Y-%m%-%d"))))) %in% basename(dfiles))){
+    requests <- list(done=dfiles,request=requests[-grep(paste0(gsub(".tif|.grib","",basename(dfiles)),collapse="|"),sapply(requests,"[[",11))])
   }else{
     requests <- list(request=requests)
   }##  or download them all
@@ -48,20 +54,24 @@ get_ecmwf <- function(cent,dfiles=NULL,dpath=tempdir()){
     getreqs <-requests$request
     wrkrs = length(getreqs)
     max_attempts =5;attempt=0
-    while(attempt < max_attempts ) {
-      attempt <- attempt + 1
-      get_reqs <- tryCatch({
-        ecmwfr::wf_request_batch(getreqs,path=dpath,workers=wrkrs)
-        paste0(dpath,lapply(getreqs,function(x) x$target),".grib")
-      }, error = function(e){
-        if (attempt >= max_attempts) {
-          stop(e)
-        }else{
-          Sys.sleep(0.5)
-          return(NULL)
-        }
-      })
-      if (!is.null(get_reqs)) break
+    if (!GC){
+      while(attempt < max_attempts ) {
+        attempt <- attempt + 1
+        get_reqs <- tryCatch({
+          ecmwfr::wf_request_batch(getreqs,path=dpath,workers=wrkrs)
+          paste0(dpath,lapply(getreqs,function(x) x$target),".grib")
+        }, error = function(e){
+          if (attempt >= max_attempts) {
+            stop(e)
+          }else{
+            Sys.sleep(0.5)
+            return(NULL)
+          }
+        })
+        if (!is.null(get_reqs)) break
+      }
+    } else{
+      get_reqs <- get_ecmwf_google(getreqs,dpath)
     }
     if ("done" %in% names(requests)){
       reqs <- c(get_reqs,requests$done)
@@ -74,3 +84,37 @@ get_ecmwf <- function(cent,dfiles=NULL,dpath=tempdir()){
   cat("\n")
   wrap(rast(reqs)*1000)
 }
+get_ecmwf_google <- function(req,df){
+  lapply(req, function(x){
+    url <- paste0("https://storage.googleapis.com/gcp-public-data-arco-era5/raw/date-variable-single_level/",x$year,"/",x$month,"/",x$day,
+                  "/total_precipitation/surface.nc")
+    tf <- tempfile(fileext=".nc")
+    attempt = 0
+    while(attempt < 5 ) {
+      attempt <- attempt + 1
+      tryCatch({
+        download.file(url,tf,mode="wb")
+      }, error = function(e){
+        if (attempt >= 5) {
+          if (file.exists(tf)) file.remove(tf)
+          stop(e)
+        }else{
+          if (file.exists(tf)) file.remove(tf)
+          Sys.sleep(0.5)
+          return(NULL)
+        }
+      })
+      if (file.exists(tf)) break
+    }
+    r <- rast(tf)
+    r <- crop(r,ext(c(x$area[2],x$area[4],x$area[3],x$area[1])))#st_shift_longitude(st_as_sf(st_as_sfc(st_bbox(c(x$area[2],x$area[4],x$area[3],x$area[1]))),crs=4326)))
+    r <- r[[format(time(r),"%H:%M") %in% x$time]]
+    ### in at least one GC layer, some hours are duplicated and empty
+    r <- r[[!duplicated(time(r))]]
+    targ <- paste0(df,x$target,".tif")
+    writeRaster(r,targ)
+    file.remove(tf)
+    targ
+  })|>unlist()
+}
+

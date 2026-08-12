@@ -4,8 +4,8 @@
 #'representing the maximum wind extent of various wind speeds at each time step of the storm, as well as the outer pressure extent (ROCI) and tracks representing the center of the storm.
 #'By default, only the native time steps are included (usually every 3 hours), but the 't_res' argument can be used to change the temporal resolution and create
 #'interpolated extents at different, usually more frequent, time steps. Unlike other functions in Cyclones, the 'make_extents()' iterations are relatively faster and computation times
-#'typically increase, rather than decrease, in parallel. Thus, parallel computation can only be performed at the storm level .
-#'#'
+#'typically increase, rather than decrease, in parallel. Thus, for now, parallel computation can only be performed at the storm level.
+#'
 #' @param storm a singular storm tabular data set as output by the `get_storms()` function. If a collection of storms is entered, only the first will be processed,
 #' unless utilized in an lapply or parallel equivalent, in which case each will be processed individually.
 #'
@@ -19,11 +19,33 @@
 #' @returns Simple features geometry collection containing time stamped storm tracks and either linestrings, polygons, or both representing the maximum extent
 #' of wind speeds, the eye wall (if present) and the Radius of the Last Closed Isobar (ROCI). All geometries are relative to a custom coordinate reference
 #' system (crs) centered on the storm's centroid and in a Lambert azimuthal equal-area projection.
+#' @examples
+#'
+#' storms <- get_storms()
+#' ##  will only compute the first storm
+#' windextent <- make_extents(storms)
+#' ##  to compute all storms
+#' windextents <- lapply(storms,make_extents)
+#' library(ggplot2)
+#' ggplot(windextent) + geom_sf(aes(col=kts))
+#'
+#' # to include modeling, best to model based on entire dataset
+#' allstorms <- get_storms(ib_filt="ALL")
+#' mods <- build_models(allstorms)
+#' windextent_mod <- make_extents(storms,mods=mods)
+#' ggplot(windextent_mod) + geom_sf(aes(col=kts))
+#'
+#' # use t_res to increase time step frequency
+#' # here, every 30 mins
+#' windextent_mod30 <- make_extents(storms,mods=mods,t_res=30)
+#' ggplot(windextent_mod30) + geom_sf(aes(col=kts))
+#'
 #' @importFrom purrr possibly
 #' @importFrom dplyr last rowwise left_join join_by pull lead n all_of bind_cols
-#' @importFrom sf st_sfc st_point st_transform st_polygon st_linestring st_as_sf st_buffer st_cast st_set_geometry st_set_crs st_drop_geometry st_union st_coordinates st_geometry st_geometry_type st_multilinestring st_line_merge st_line_sample
-make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="CONS",cpus=NULL){
+#' @importFrom sf st_sfc st_point st_transform st_polygon st_linestring st_as_sf st_buffer st_cast st_set_geometry st_set_crs st_drop_geometry st_union st_coordinates st_geometry st_geometry_type st_multilinestring st_line_merge st_line_sample write_sf
+make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="CONS",cpus=NULL,todir=NULL){
   if (!"linestrings"%in% type&(!"polygons" %in% type)&(!"all" %in% type)) stop("geometry return type unknown")
+  if (!is.null(todir)&&!dir.exists(todir)) stop("todir not found.")
   storm <- checkstorm(storm,agency)
   #if (mods=="Cyclones") mods <- data(Cyclones::storm_mods)
   #mult <- storm$mult;storm <- storm$dta
@@ -39,7 +61,7 @@ make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="C
   if (!is.null(t_res)){
    points <- interp_track(points,t_res)|>
      st_as_sf(coords=c("LON","LAT"),crs=4326,remove=FALSE)
-  }
+  }else{t_res=3*60}
   options(warn = 0)
   ###  parallel taking much longer than serial....
   # if (!is.null(cpus)) {
@@ -57,8 +79,30 @@ make_extents <- function(storm,mods=NULL,type="linestrings",t_res=NULL,agency="C
   # }else{
     track <- lapply(1:nrow(points),apply_tracks,m=mods,pts=points,typ=type)
   #}
-  if (all(unique(unlist(lapply(track,names)))==c("swaths","linestrings"))) extents <- list(polygons=do.call(rbind,lapply(track,function(x) x$swaths)),linestrings=do.call(rbind,lapply(track,function(x) x$linestrings)))
-  else extents <-do.call(rbind,track)
+  if (all(c("swaths","linestrings") %in% type)){
+    extents <- list(polygons=do.call(rbind,lapply(track,function(x) x$swaths)),linestrings=do.call(rbind,lapply(track,function(x) x$linestrings)))
+    if (!is.null(todir)) {
+      #newdir <- paste0(todir,"/",toupper(unique(storm$NAME)),unique(first(storm$SEASON)),"_",t_res,"_EXTENT")
+      #if (!dir.exists(newdir)) dir.create(newdir)
+      write_sf(extents$polygons,paste0(todir,"/polygons_",t_res,"mins_",unique(storm$ID),".gpkg"))
+      write_sf(extents$linestrings,paste0(todir,"/linestrings_",t_res,"mins_",unique(storm$ID),".gpkg"))
+      extents <- list(polygons=paste0(todir,"/polygons_",t_res,"mins_",unique(storm$ID),".gpkg"),
+                      linestrings=paste0(todir,"/linestrings_",t_res,"mins_",unique(storm$ID),".gpkg"))
+    }
+  } else{
+    extents <-do.call(rbind,track)
+    if (!is.null(todir)) {
+      #newdir <- paste0(todir,"/",toupper(unique(storm$NAME)),unique(first(storm$SEASON)),"_",t_res,"_EXTENT/")
+       #dir.create(newdir)
+      if (type=="polygons"){
+        write_sf(extents,paste0(todir,"/polygons_",t_res,"mins_",unique(storm$ID),".gpkg"))
+        extents <- paste0(todir,"/polygons_",t_res,"mins_",unique(storm$ID),".gpkg")
+      } else if (type=="linestrings"){
+        write_sf(extents,paste0(todir,"/linestrings_",t_res,"mins_",unique(storm$ID),".gpkg"))
+        extents <- paste0(todir,"/linestrings_",t_res,"mins_",unique(storm$ID),".gpkg")
+      }
+    }
+  }
   cat("\n")
   #bundle <- list(polygons=swaths,linestrings=linestrings)
   #names(bundle) <- unique(linestrings$ID)
@@ -92,12 +136,14 @@ apply_tracks <- function(L,pts,m,typ){
   rocimod=m$rocimod
   pocimod=m$pocimod
   minpresss=m$minpress
+  minpressmod=m$minpress_mod
   ###  north american (NA) basins may return NA instead of  "NA"
   if(is.na(basin)){basin="NA"}
   X <- pt$LON
   Y <- pt$LAT
   ###  create a custom CRS centered on the track. This helps preserve true distances and reduces error
   ##  associated with crs warping
+
   custCRS <- paste0("+proj=laea +x_0=0 +y_0=0 +lon_0=",X," +lat_0=",Y," +datum=WGS84")  ##  adding the WGS84 datum to avoid reprojection issues when no internet connection is available for PROJ grib libraries
   ###  create another CRS for the whole set of tracks for this storm
   custCRSall <- paste0("+proj=laea +lat_0=",round(mean(pts$LAT,na.rm=TRUE))," +lon_0=",round(mean(pts$LON,na.rm=TRUE))," +lat_1=",ceiling((max(pts$LAT,na.rm=TRUE)-min(pts$LAT,na.rm=TRUE))/6),
@@ -108,12 +154,28 @@ apply_tracks <- function(L,pts,m,typ){
     st_transform(custCRS)
   ###  take relevant information from the IBTrACS data
   Cat <- as.numeric(pt$USA_SSHS)
+  ### after interp_track, Cat should only be missing at the ends. Everything else was interpolated
+  ### if missing, try estimating from the pressure
+  ### otherwise, fill from the last or first known value
+  if (is.na(Cat)){
+    if (!is.na(pt$PRES)){
+      Cat <- minpresss|>
+        ungroup()|>
+        filter(BASIN==pt$BASIN,MONTH==format(pt$date,"%m"))|>
+        filter(abs(PRES - pt$PRES) == min(abs(PRES - pt$PRES)))|>
+        slice(1)|>
+        pull(USA_SSHS)
+    }else{
+      ###  otherwise fill from the closest value
+      Cat <-  pts |> fill(USA_SSHS,"downup")|>slice(L)|>pull(USA_SSHS)
+    }
+  }
   maxwind <- round(as.numeric(pt$WIND))
   if (length(maxwind)==0){maxwind <- NA}
   ###  in rare, mostly minor storms, the maxwind is missing
   ##   assign this based on the category
   if(is.na(maxwind)&!is.null(m)){
-    maxwind=ifelse(Cat==5,137,ifelse(Cat==4,113,ifelse(Cat==3,96,ifelse(Cat==2,83,ifelse(Cat==1,64,ifelse(Cat==0,34,ifelse(Cat==-1,24,ifelse(Cat==-2,14,ifelse(Cat==-3,10,NA)))))))))
+    maxwind=ifelse(Cat==5,137,ifelse(Cat==4,113,ifelse(Cat==3,96,ifelse(Cat==2,83,ifelse(Cat==1,64,ifelse(Cat==0,34,ifelse(Cat==-1,24,ifelse(Cat==-2,14,ifelse(Cat==-3,10,8)))))))))
   }
   maxwinddist <- as.numeric(pt$RMW)
   if (length(maxwinddist)==0){maxwinddist <- NA}
@@ -122,9 +184,14 @@ apply_tracks <- function(L,pts,m,typ){
   #### in only a very few cases, the minimum pressure is missing,
   ####  take the average for the storms of the same size class in the same month and in the same basin
   if (is.na(minpress)&!is.null(m)){
-    minpress=minpresss$PRES[minpresss$USA_SSHS==Cat&minpresss$MONTH==pt$MONTH&minpresss$BASIN==basin]
-    if (length(minpress)==0){
-      minpress=mean(minpresss$PRES[minpresss$MONTH==pt$MONTH&minpresss$BASIN==basin],na.rm=TRUE)
+    ##  take the inverse of the mawind~minpress relationship
+    minpress <- (maxwind-coef(minpressmod$model[minpressmod$BASIN==basin][[1]])[1])/coef(minpressmod$model[minpressmod$BASIN==basin][[1]])[2]
+    ## otherwise, use the averages
+    if (length(minpress)==0|is.na(minpress)){
+      minpress=minpresss$PRES[minpresss$USA_SSHS==Cat&minpresss$MONTH==pt$MONTH&minpresss$BASIN==basin]
+      if (length(minpress)==0|is.na(minpress)){
+        minpress=mean(minpresss$PRES[minpresss$MONTH==pt$MONTH&minpresss$BASIN==basin],na.rm=TRUE)
+      }
     }
   }
   maxpress <- as.numeric(pt$POCI)
@@ -231,7 +298,7 @@ apply_tracks <- function(L,pts,m,typ){
       ##  one approach is 80% of the minimum wind distance
       #eyerad=min(swathpoints[swathpoints>0])*.8
       ## another approach is to use the models
-      if (Cat>=0){
+      if (Cat>=0&basin!="SA"){  ##  only one hurricane in SA so nothing to model
         eyerad <- data.frame(minwinddist=min(swathpoints[swathpoints>0],na.rm=TRUE),USA_SSHS=Cat,BASIN=basin) |>
           group_nest(USA_SSHS,BASIN) |>
           left_join(emod|>select(USA_SSHS,BASIN,model),by=c("USA_SSHS","BASIN")) |>
@@ -285,7 +352,6 @@ apply_tracks <- function(L,pts,m,typ){
       mutate(location="ROCI",kts=0,dist_m=ROCId*1852,source=rocisource)
     swaths <- bind_rows(swaths,ROCI)
   }
-
   if (!is.na(eyerad)) swaths <- rbind(swaths,eye)
   swaths <- swaths |>
     group_by(kts,location) |>
@@ -421,20 +487,14 @@ interp_track <- function(pnts,tres,pre=NULL,wind=TRUE){
   newpoints <- newpoints |> left_join(st_drop_geometry(pnts)|>select(-any_of(c("LON","LAT"))),by=join_by(date))
   if (interpt) newpoints <- newpoints |>
     mutate(across(c(SEASON,LAT,LON,USA_SSHS:R64_NW),as.numeric)) |>
+    ###  need to interpolate USA_SSHS as it is essential for most of the models. But it needs to be an integer
+    mutate(across(USA_SSHS:R64_NW,zoo::na.approx,na.rm=FALSE))|>
     ###  zeros in the quadrant data shouldnt be interpolated as zero, they should be missing
     ###  similarly, if a storm loses a wind extent and regains it later, the values in between should not be interpolated
-    mutate(across(STORM_SPEED:R64_NW,zoo::na.approx,na.rm=FALSE))|>
     mutate(across(R34_NE:R64_NW,~if_else(.x<0,NA,.x)),
       source=if_else(is.na(NAME),"interpolated","native"),
       MONTH=format(date,"%m"),
-      USA_SSHS = if_else(is.na(USA_SSHS),
-                         if_else(WIND<=33,-1,
-                                 if_else(WIND<=63,-0,
-                                         if_else(WIND<=82,1,
-                                                 if_else(WIND<=95,2,
-                                                         if_else(WIND<=112,3,
-                                                                 if_else(WIND<=136,4,5)))))),USA_SSHS),
-      )|>
+      USA_SSHS = round(USA_SSHS))|>
     tidyr::fill(any_of(c("SID","USA_ATCF_ID","SEASON","NAME","BASIN","ID")))
   newpoints
 }
@@ -448,8 +508,10 @@ model_extent <- function(swathpnts,m,mxwnd,mxwnd_dist,C,bas){
   minpresss <- m$minpress
   ###  first, develop a vector of wind speeds to model for distance
   swathpnts_blank <- data.frame(windspeed=rep(c(34,50,64,mxwnd),4),quad=rep(c("NE","SE","SW","NW"),each=4),USA_SSHS=C,BASIN=bas,source="modeled")
-  swathpnts_blank <- swathpnts_blank[swathpnts_blank$windspeed<=mxwnd,]
+  ###  sometimes the maxwind is that same as one of the quadrant winds speeds (34, 50, 64), remove duplicates
   swathpnts_blank <- swathpnts_blank[!duplicated(swathpnts_blank),]
+  ## only interested in lower wind speeds
+  swathpnts_blank <- swathpnts_blank[swathpnts_blank$windspeed<=mxwnd,]
   ###  join the available distances
   repl <- swathpnts[grep(max(as.numeric(gsub("NE|SE|SW|NW","",names(swathpnts[swathpnts>0]))),na.rm=T),names(swathpnts))]
   repl <- repl[repl>0]
@@ -469,7 +531,7 @@ model_extent <- function(swathpnts,m,mxwnd,mxwnd_dist,C,bas){
   swathpnts <- swathpnts[swathpnts>0]
   swathpnts <- data.frame(windspeed=names(swathpnts),dist=swathpnts)|>
     mutate(quad=substr(windspeed,1,2),
-           windspeed=as.numeric(gsub(paste(quad,collapse="|"),"",windspeed)))
+           windspeed=as.numeric(gsub(paste(quad,collapse="|"),"",windspeed)))|>distinct()
   swathpnts <- swathpnts_blank |>
     left_join(swathpnts,by=join_by(quad,windspeed))
   ###  model the missing distances

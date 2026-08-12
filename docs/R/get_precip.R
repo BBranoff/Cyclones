@@ -72,16 +72,15 @@
 #' Helene_precips <- get_precip(Helene_extents,sources='all',cpus=10,s_res=5000,t_res=15)
 #' @importFrom sf st_as_sf st_transform st_buffer st_bbox
 #' @importFrom dplyr filter arrange
-#' @importFrom terra writeRaster
+#' @importFrom terra writeRaster unwrap wrap
 get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_res=NULL,prestorm=NULL,
-                       agg=FALSE,cpus=NULL,overwrite=FALSE,loadrasts=FALSE){
+                       cpus=NULL,overwrite=FALSE,loadrasts=FALSE,agg=FALSE){
   ###  if the supplied input are directories of previously saved rasters, load those
-  if (class(storm)[1]=="character"){ return(deliver_precip(precips_all=NULL,cent=storm,todir=todir,source=NULL,overwrite=NULL,loadrsts=loadrasts,cpus=NULL,ex_parallel=NULL))}
+  if (class(storm)[1]=="character"){ return(deliver_precip(precips_all=NULL,cent=storm,todir=todir,source=NULL,overwrite=overwrite,loadrsts=loadrasts,cpus=NULL,ex_parallel=NULL,aggregate=agg))}
   #############  precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel
   ###  checks and initiate variables
   ###########
   ##  check for internal parallelization
-
   parallel <- !is.null(cpus)
   ##  check for external parallelization
   ex_parallel <- any(unlist(lapply(sys.calls(), function(cal) {
@@ -169,7 +168,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
   }
   if ("ecmwf" %in% sources){
     if (!require("ecmwfr")) error("'ecmwfr' package necessary for 'ecmwfr' data downloads. Please install it and run 'ecmwfr::wf_set_key()' with your token to authenticate.")
-    if (is.null(ecmwfr::wf_get_key())) stop("No ecmwf key detected. Register at 'ecmwf.int/user/login' and use ecmwfr::wf_set_key() to set your given key.")
+    if (is.null(ecmwfr::wf_get_key())) stop("No ecmwf key detected. Register at 'ecmwf.int/user/login', then 'https://cds.climate.copernicus.eu/profile' and use ecmwfr::wf_set_key() to set your given key.")
   }
   if("gpm" %in% sources){
     if (!require("earthdatalogin")) error("'earthdatalogin' package necessary for 'gpm' data downloads. Please install it.")
@@ -186,7 +185,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
       #if(t_res!=180) interpt=TRUE
       if (is.null(sres)) sres=10000
       #if (s_res<10000) warning("'s_res' is less than the native resolution (10000 m). Results will lose accuracy.")
-    }else if (source =="ecmwf"){
+    }else if (grepl("ecmwf",source)){
       if (is.null(t_res)) t_res=60
       #if(t_res!=60) interpt=TRUE
       if (is.null(sres)) sres=25000
@@ -196,7 +195,7 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
       #if(t_res!=60) interpt=TRUE
       if (is.null(sres)) sres=5000
     }
-    dpath_source <- paste0(dpath,source,"/")
+    dpath_source <- paste0(dpath,gsub("_gc","",source),"/")
     if (!dir.exists(dpath_source)&&!returnNULL){
       dir.create(dpath_source)
       cat(paste0("Source data downloading to / loading from: ",dpath_source,". \n"))
@@ -210,25 +209,26 @@ get_precip <- function(storm,sources="ecmwf",todir=NULL,dpath=NULL,t_res=NULL,s_
              minstormdate=min(date[!is.na(source)],na.rm=TRUE))|>
       fill(ID,name,.direction ="downup")
     if (!is.null(todir)){
-      newdir <- paste0(todir,unique(lines$name),unique(format(lines$date,"%Y")),"_",sres,"_",t_res,"_PRECIP/")
+      newdir <- paste0(todir,gsub(":","-",unique(lines$name)),first(format(lines$date,"%Y")),"_",sres,"_",t_res,"_PRECIP/")
       if (!dir.exists(newdir)) dir.create(newdir)
-      newdir <-  paste0(newdir,source)
-      if (!dir.exists(newdir)) dir.create(newdir)
+      if (agg!="only"){  ##  only create the method specific directories if individual timesteps will be saved
+        newdir <-  paste0(newdir,source)
+        if (!dir.exists(newdir)) dir.create(newdir)
+      }
       if (overwrite==FALSE) cat(paste0("Saving to: ",newdir,". Overwrite set to FALSE, existing files will be SKIPPED.","\n"))
       else cat(paste0("Saving processed images to: ",newdir,". Overwrite set to TRUE, existing files will be REPLACED.","\n"))
-      if (!dir.exists(newdir)) dir.create(newdir)
     }else{ newdir=NULL}
-    cat(paste0("processing precip for ", unique(lines$name),"_",unique(format(lines$date,"%Y"))," via ",source,"\n"))
+    cat(paste0("processing precip for ", gsub(":","-",unique(lines$name)),"_",unique(format(lines$date,"%Y"))," via ",source,"\n"))
     if (returnNULL){
       precip=NULL
     }else{
       if (parallel){
         precip <- parallelprecip(centers,source,rTempP,dpath_source,prestorm,cpus)
       }else{
-        precip <-  unwrap(do_precip(centers,source,rTempP,dpath_source,prestorm))#do.call(fun,list(centers,rTempP,newdir,dpath,overwrite))
+        precip <-  terra::unwrap(do_precip(centers,source,rTempP,dpath_source,prestorm))#do.call(fun,list(centers,rTempP,newdir,dpath,overwrite))
       }
     }
-    precip <- deliver_precip(precip,centers,prestorm,newdir,source,overwrite,loadrasts,cpus,ex_parallel)
+    precip <- deliver_precip(precip,centers,prestorm,newdir,source,overwrite,loadrasts,cpus,ex_parallel,agg)
     precips=append(precips,list(precip))
     cat("\n")
   }
@@ -269,7 +269,7 @@ parallelprecip <- function(cents,source,r,dpath=NULL,pre_storm,cpus) {
   precips <- lapply(seq_along(cents_div),function(x,c,r) {
     if (x<length(cents_div)) list(precips=wrap(r[[terra::time(r)<=min(c[[x+1]]$date,na.rm=TRUE)&terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
     else list(precips=wrap(r[[terra::time(r)>=min(c[[x]]$date,na.rm=TRUE)]]),precips2=NULL,cent=c[[x]])
-  },c=cents_div,r=unwrap(precips))
+  },c=cents_div,r=terra::unwrap(precips))
   initiatepar(cpus)
   precip <- sfClusterApplyLB(precips,do_precip,source,r,dpath,pre_storm)
   # if (lrsts){
@@ -284,7 +284,7 @@ parallelprecip <- function(cents,source,r,dpath=NULL,pre_storm,cpus) {
   # }else{
   #   return(unique(unlist(precip)))
   # }
-  precip <- rast(lapply(precip,unwrap))
+  precip <- rast(lapply(precip,terra::unwrap))
   precip <- precip[[order(terra::time(precip))]]
   precip
 }
@@ -297,15 +297,16 @@ do_precip <- function(cent,source,r,dpath=NULL,pre_storm){
   ###  if called without parallel
   if (class(cent)[1]=="sf"){
     prll=FALSE
-    fun <- match.fun(paste0("get_",source))
-    precips <- unwrap(do.call(fun, list(cent,dpath=dpath)))
+    fun <- match.fun(paste0("get_",gsub("_gc","",source)))
+    if (grepl("gc",source)) precips <- terra::unwrap(do.call(fun, list(cent=cent,dpath=dpath,GC=TRUE)))
+    else precips <- terra::unwrap(do.call(fun, list(cent,dpath=dpath)))
     precips2 <- NULL
     ##  if called inside parallel
   }else{
     prll=TRUE
-    precips <- unwrap(cent$precips)
+    precips <- terra::unwrap(cent$precips)
     precips2 <- NULL#cent$precips2
-    #if (!is.null(precips2)) precips2 <- unwrap(precips2)[[1]] ###  for ecmwf, the precips2 only has one layer, so cant subset with [[1]]. others?
+    #if (!is.null(precips2)) precips2 <- terra::unwrap(precips2)[[1]] ###  for ecmwf, the precips2 only has one layer, so cant subset with [[1]]. others?
     cent <- cent$cent
   }
   times = unique(cent$date[!is.na(cent$date)])
@@ -313,8 +314,8 @@ do_precip <- function(cent,source,r,dpath=NULL,pre_storm){
   maxdate <- cent$maxdate
   id <- unique(cent$ID[!is.na(cent$ID)])
   ###  add in the first hour of the next day for interpolation
-  if (!is.null(precips2)) precips_p <- suppressWarnings(project(c(precips,rast(precips2)),unwrap(r)))
-  else precips_p <- suppressWarnings(project(precips,unwrap(r)))
+  if (!is.null(precips2)) precips_p <- suppressWarnings(project(c(precips,rast(precips2)),terra::unwrap(r)))
+  else precips_p <- suppressWarnings(project(precips,terra::unwrap(r)))
   ##  get the timestep
   dt <- unique(difftime(times,dplyr::lag(times),unit="hour"))
   dt <- as.numeric(dt[!is.na(dt)])
@@ -331,7 +332,7 @@ do_precip <- function(cent,source,r,dpath=NULL,pre_storm){
   names(precips_p)= rep(paste0(source,"_precip.mm/",dt,"hr_native"),nlyr(precips_p))
   ###  interpolate the in-between times
   if (length(notimes)>0){
-    precips_notimes <-  rep(unwrap(r),length(notimes))
+    precips_notimes <-  rep(terra::unwrap(r),length(notimes))
     terra::time(precips_notimes) <- notimes
     ###  name the interpolated layers
     names(precips_notimes)= rep(paste0(source,"_precip.mm/",dt,"hr_interp"),nlyr(precips_notimes))
@@ -422,7 +423,7 @@ pre_sub_precips <- function(prcips,stormpoints,prehours,cpus=NULL){
       #   return(wrap(prcips_pre))
       # },p=pr)
 
-    prcips_cropped <- rast(lapply(prcips_cropped,unwrap))
+    prcips_cropped <- rast(lapply(prcips_cropped,terra::unwrap))
     prcips_cropped <- prcips_cropped[[order(terra::time(prcips_cropped))]]
     }
     pre_rasts <- append(pre_rasts,list(prcips_cropped))
@@ -431,7 +432,7 @@ pre_sub_precips <- function(prcips,stormpoints,prehours,cpus=NULL){
   pre_rasts
 }
 
-deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel){
+deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loadrsts,cpus,ex_parallel,aggregate){
   if (class(cent)[1]=="character"){
     if (is.null(todir)){
       todir=getwd()
@@ -441,11 +442,14 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
     for (s in cent){
       meths <- list.dirs(paste0(todir,"/",s,"/"))[-1]
       precips = list.files(paste0(todir,"/",s,"/"),recursive = TRUE,full.names = TRUE,pattern=".tif")
+      precips <- grep("aggregate",precips,value = TRUE,invert = TRUE)
       if (length(precips)==0) stop("No .tif files found in supplied directory. Do you need to specify the todir?")
+      basename <- unique(unlist(lapply(strsplit(basename(precips),"_"), function(x) paste0(x[1:5],collapse="_"))))
       out <- list()
       for (m in meths){
         cat(paste0("\rLoading ",s," from file: %",round(100*(which(meths==m)/(length(meths))))))
         precips = list.files(m,recursive = TRUE,full.names = TRUE,pattern=".tif")
+        precips <- grep("aggregate",precips,value = TRUE,invert = TRUE)
         if (length(precips)>0){
           #nmes <- gsub(".tif","",basename(precips))
           storm = grep("prestorm",precips,invert=TRUE,value=TRUE)
@@ -456,7 +460,7 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
           }else{
             prestorm=NULL
           }
-          if (loadrsts){
+          if (loadrsts|(!aggregate==FALSE)){
             storm = rast(storm)
             prestorm <- lapply(prestorm,rast)
           }
@@ -465,9 +469,32 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
       }
       cat("\n")
       names(out) <- basename(meths)
-      outall <- append(outall,out)
+      if (!aggregate==FALSE){
+        outagg <- aggregate_product(out,type="precip")
+        if (aggregate=="only") out=outagg
+        else out=append(out,outagg)
+        aggbase <- paste0(unique(dirname(meths)),"/",unique(unlist(lapply(strsplit(basename(precips),"_"), function(x) paste0(x[2:5],collapse="_")))),"_aggregate_")
+        browser()
+        lapply(seq_along(outagg),function(x){
+          rfile <- paste0(aggbase,names(outagg)[x],".tif")
+          if (!file.exists(rfile)){
+            writeRaster(outagg[[x]],rfile)
+          }else {
+            ### if the file exists and overwrite, replace it
+            if (overwrite){
+              writeRaster(outagg[[x]],rfile,overwrite=TRUE)
+            }else{
+              ###  otherwise only append non-existing layers
+              rlayers <- names(rast(rfile))
+              if (any(!names(outagg[[x]]) %in% rlayers)){
+                writeRaster(outagg[[x]][!names(outagg[[x]] %in% rlayers)],rfile,gdal="APPEND_SUBDATASET=YES")
+              }
+            }
+          }
+        })
+      }
     }
-   return(outall)
+    return(out)
   }
   if(is.null(precips_all)) return(NULL)
   ###  some requests get a full day at a time, trim the end days to drop times when the storm is non-existent
@@ -482,35 +509,61 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
     precips_prestorm <- pre_sub_precips(precips_all,cent,pre_storm,cpus=NULL)
     #else precips_prestorm <- list(wrap(precips_all));precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}#precips_all[[!terra::time(precips_all) %in% terra::time(precips_storm)]]
     precips_all <- list(storm=precips_storm,prestorm=precips_prestorm)
-    prefiles <- lapply(seq_along(pre_storm),function(x) paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(unwrap(precips_prestorm[[x]])),"%Y%m%d%H%M"),"_",pre_storm[x],"hrs_prestorm.tif"))
+    prefiles <- lapply(seq_along(pre_storm),function(x) paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(terra::unwrap(precips_prestorm[[x]])),"%Y%m%d%H%M"),"_",pre_storm[x],"hrs_prestorm.tif"))
   }else{
     #if (prll) precips_storm <- if(is.null(precips_storm)) NULL else {wrap(precips_storm)}
     precips_all <- list(storm=precips_storm)
     prefiles <- NULL
   }
-  tofiles <- paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(unwrap(precips_storm)),"%Y%m%d%H%M"),".tif")
+  if (!aggregate==FALSE){
+    precips_agg <-setNames(list(precips_all),source) #list(rast(precips_all)) # to mimick the lists supplied by multi-method load
+    precips_agg=aggregate_product(precips_agg,type="precip")
+    if (!is.null(todir)){
+      aggbase <- paste0(todir,unique(cent$ID),"_aggregate_")
+      lapply(seq_along(precips_agg),function(x){
+        rfile <- paste0(aggbase,names(precips_agg)[x],".tif")
+        if (!file.exists(rfile)){
+          writeRaster(precips_agg[[x]],rfile)
+        }else {
+          ### if the file exists and overwrite, replace it
+          if (overwrite){
+            writeRaster(precips_agg[[x]],rfile,overwrite=TRUE)
+          }else{
+            ###  otherwise only append non-existing layers
+            rlayers <- names(rast(rfile))
+            if (!any(names(precips_agg[[x]]) %in% rlayers)){
+              writeRaster(precips_agg[[x]][[!names(precips_agg[[x]]) %in% rlayers]],rfile,gdal="APPEND_SUBDATASET=YES")
+            }
+          }
+        }
+      })
+    }
+    if (aggregate=="only") return(precips_agg)
+    else precips_all <- append(precips_all,list(aggregate=precips_agg))
+  }
+  tofiles <- paste0(todir,"/",source,"_",unique(cent$ID),"_",format(time(terra::unwrap(precips_storm)),"%Y%m%d%H%M"),".tif")
   ###  only keep the files that arent already saved if overwrite is FALSE?
   ### can only do this if out of parallel
   ### for parallel, saving is done once all files are assembled
   if (!is.null(todir)){
     if (!overwrite){
       if (!is.null(precips_storm)&&!all(file.exists(tofiles))) {
-        precips_storm <- unwrap(precips_storm)[[!file.exists(tofiles)]]
+        precips_storm <- terra::unwrap(precips_storm)[[!file.exists(tofiles)]]
         writeRaster(precips_storm,tofiles[!file.exists(tofiles)],overwrite=overwrite)
       }
       if (!is.null(pre_storm)) lapply(seq_along(pre_storm),function(x){
         if (!all(file.exists(prefiles[[x]]))){
-          writeRaster(unwrap(precips_prestorm[[x]])[[!file.exists(prefiles[[x]])]],
+          writeRaster(terra::unwrap(precips_prestorm[[x]])[[!file.exists(prefiles[[x]])]],
                       prefiles[[x]][!file.exists(prefiles[[x]])],overwrite=overwrite)
         }
       })
       #else if(!file.exists(prefiles)) writeRaster(unwrap(precips_prestorm),prefiles,overwrite=overwrite)
       ##  only one prefile, so no need to include here..unless we want to do it for every prestorm period...
     }else{
-      writeRaster(unwrap(precips_storm),tofiles,overwrite=overwrite)
+      writeRaster(terra::unwrap(precips_storm),tofiles,overwrite=overwrite)
       if (!is.null(pre_storm)) lapply(seq_along(pre_storm),function(x){
         #prefilesx <- grep(pre_storm[x],prefiles,value=TRUE)
-        writeRaster(unwrap(precips_prestorm[[x]]),prefiles[[x]],overwrite=overwrite)
+        writeRaster(terra::unwrap(precips_prestorm[[x]]),prefiles[[x]],overwrite=overwrite)
       })
     }
   }
@@ -521,6 +574,3 @@ deliver_precip <- function(precips_all,cent,pre_storm,todir,source,overwrite,loa
   else return(Filter(Negate(is.null),c(tofiles,unlist(prefiles))))
 }
 
-load_precip <- function(storm,todir,loadrasts){
-
-}
