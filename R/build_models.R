@@ -10,7 +10,8 @@
 #'
 #' @param storms A list of storm tabular data as output by the `get_storms()` function. Ideally, this should include the largest possible pool of storms relevant for
 #' subsequent analyses, as the models will reflect variability in these input storms only.
-#' @param keep_data Whether to retain the training data with a prediction column for each set of models.
+#' @param strip Whether to strip down the models and the nested structure into separate lists, rather than nested data sets. This helps when trying to view the
+#' models or the underlying data or when trying to save to disk.
 #'
 #' @returns A list of nested tibbles, one for each of the model groups:
 #' * distmods:  asymptotic and linear models of distance from the storm center as a function of wind speed. Models nested by basin, quadrant, and Saffir-Simpson category.
@@ -138,7 +139,25 @@ build_models <- function(storms=NULL,strip=FALSE){
 
   ####  the non-linear model is a better fit for all combinations of quad and saffir simpson
   #####
-  ##  also need to model the eyewall radius
+   ## sometimes need a model of minimum pressure versus maximum wind
+   ##  in these cases, does not make sense to include Category as that is already dependent on max wind
+   press_dat <- storms_long|>
+     filter(var %in% c("PRES","WIND","POCI"))|>
+     tidyr::pivot_wider(names_from=var)|>
+     ## erroneous pressure values less than 850
+     filter(PRES>850)|>
+     mutate(PRES_DIF=POCI-PRES)
+   minpress_mod <- press_dat |>
+     group_nest(BASIN) |>
+     mutate(model=map(data,~lm(WIND~PRES,data=.)),
+            data=map2(model,data,~mutate(.y,pred.wind=predict(.x,.y))))
+   ###  pressure difference is a better model when available
+   pressdiff_mod <- press_dat |>
+     filter(PRES_DIF>0)|>
+     group_nest(BASIN) |>
+     mutate(model=map(data,~lm(WIND~PRES_DIF,data=.)),
+            data=map2(model,data,~mutate(.y,pred.wind=predict(.x,.y))))
+   ##  also need to model the eyewall radius
   ##  this is crucial for maximum wind speeds and capturing the intense transition from eye to eye wall
   ####
    eyedat <- distdat |>
@@ -247,7 +266,9 @@ build_models <- function(storms=NULL,strip=FALSE){
                emod=eyemod,#|> select(-c(data,pred)),
                rocimod=ROCImod,#|> select(-c(data,pred)),
                pocimod=POCImod,#|> select(-c(data,pred)),
-               minpress = minpress)
+               minpress = minpress,
+               minpress_mod = minpress_mod,
+               pressdiff_mod = pressdiff_mod)
 
  mods
 }

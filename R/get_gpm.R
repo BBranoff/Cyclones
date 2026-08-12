@@ -81,11 +81,17 @@ downr <- function(u,d,max_attempts =5,attempt=0,success=FALSE) {
       return(rast(d))
     }, error = function(e){
       file.remove(d)
-      if (attempt >= max_attempts) {
+      if (attempt >= max_attempts|check_online_file(u)==404) {
         return(NULL)
       }else{
         Sys.sleep(2)
       }
     })
   }
+}
+###  to check if file exists
+##  mostly used for SRTM, because no other way to know if small islands have coverage
+check_online_file <- function(url) {
+  response <- httr::HEAD(url)
+  httr::status_code(response)
 }

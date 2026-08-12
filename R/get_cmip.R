@@ -1,6 +1,7 @@
 #' @importFrom sf st_crop st_as_sf st_geometry st_intersection
 #' @importFrom ecmwfr wf_request
 #' @importFrom dplyr c_across
+#' @importFrom ncdf4 nc_open nc_close ncvar_get
 get_cmip <- function(storm,dpath=NULL,var="waterlevel"){
   if(is.null(dpath)) dpath=tempdir()
   if (!dir.exists(paste0(dpath,"/CMIP6/"))) dir.create(paste0(dpath,"/CMIP6/"))
@@ -38,7 +39,8 @@ get_cmip <- function(storm,dpath=NULL,var="waterlevel"){
   geom <- st_as_sf(WLsurges|>distinct(lon,lat),coords=c("lon","lat"),crs=4326,remove=FALSE)
   e <- st_union(st_geometry(st_buffer(storm,as.numeric(roci)*1852)))
   suppressMessages({sf_use_s2(FALSE)
-  geoms <- geom[which(lengths(st_intersects(geom,st_transform(e,4326)))>0),]
+  #geoms <- geom[which(lengths(st_intersects(geom,st_transform(e,4326)))>0),]
+  geoms <- sf::st_filter(geom, sf::st_wrap_dateline(st_transform(e,4326)), .predicate = st_intersects)
   sf_use_s2(TRUE)
   })
   WLsurges <- WLsurges |> filter(paste0(lon,lat) %in% paste0(geoms$lon,geoms$lat))|>

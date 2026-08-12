@@ -33,8 +33,8 @@ calculate_bearing <- function(lat1, lon1, lat2, lon2,tmpras){
     bear[is.na(bear)] = rep(0,length(lon1))
   } else{
     ##  date line
-    if (any(lon1) > 90 & lon2 < -90) lon2 <- lon2 + 360
-    if (any(lon1) < -90 & lon2 > 90)   lon1[lon1< -90] <- lon1[lon1< -90] + 360
+    if (any(lon1 > 90 & lon2 < -90)) lon2 <- lon2 + 360
+    if (any(lon1 < -90 & lon2 > 90))   lon1[lon1< -90] <- lon1[lon1< -90] + 360
     #if (any(lon1<0)) lon1 <- lon1+360
     #if (lon2<0) lon2 <- lon2+360
     # same longitude

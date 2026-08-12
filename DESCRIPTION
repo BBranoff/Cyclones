@@ -23,11 +23,13 @@ Imports:
     fields,
     googledrive,
     methods,
+    ncdf4,
     purrr,
     rvest,
     sf,
     terra,
-    tidyr
+    tidyr,
+    zoo
 Suggests: 
     knitr,
     rmarkdown,

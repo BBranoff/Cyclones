@@ -12,10 +12,10 @@ get_precip(
   t_res = NULL,
   s_res = NULL,
   prestorm = NULL,
-  agg = FALSE,
   cpus = NULL,
   overwrite = FALSE,
-  loadrasts = FALSE
+  loadrasts = FALSE,
+  agg = FALSE
 )
 }
 \arguments{

@@ -13,12 +13,13 @@ get_storms(
   ib_filt = NULL,
   consolidate = TRUE,
   cols = NULL,
+  erddap = TRUE,
   returndf = FALSE,
   ...
 )
 }
 \arguments{
-\item{source}{string or data.frame input or pre-loaded object. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
+\item{source}{string ('ncei' or 'hurdat'), filename, or pre-loaded data frame. If string, should be a target web source (either 'ncei' or 'hurdat') for downloading,
 or a filename of a .csv or .nc file containing tabular cyclone data. Can also be pre-loaded data.frame. In the case of an existing data.frame, it should be consistent with
 IBTrACS or HURDAT format.}
 
@@ -42,7 +43,9 @@ translates these values to a common interval. See 'cons_stormdat()'.}
 and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
 all original columns are retained when 'cols' is empty.}
 
-\item{...}{Additional arguments passed to cons_stormdat().}
+\item{returndf}{if the results shuold be returned as a single data frame (TRUE) or as a list of single storm data frames (FALSE, default).}
+
+\item{...}{Additional arguments passed to cons_stormdat(), e.g. 'pref', 'msw_int'.}
 }
 \value{
 A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are
@@ -57,6 +60,8 @@ format it for processing in the Cyclones functions.
 storms <- get_storms()
 
 # get a specific storm
+# older years may require extending the timeout for download
+options(timeout=300)
 Maria_2017 <- get_storms(name="MARIA",season=2017)
 Maria_2017 <- get_storms(id="2017260N12310")
 

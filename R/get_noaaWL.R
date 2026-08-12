@@ -30,9 +30,10 @@ get_noaaWL <- function(storm,dpath=NULL){
   storm <- st_as_sf(storm,coords=c("LON","LAT"),crs=4326)
   roci <- storm |> pull(contains("CONS_ROCI"))|>mean(na.rm=TRUE)
   if (is.na(roci)) roci <- 500000/1852
-  extnt <- st_transform(st_union(st_geometry(st_buffer(storm,as.numeric(roci)*1852))),4326)
+  extnt <- sf::st_wrap_dateline(st_transform(st_union(st_geometry(st_buffer(storm,as.numeric(roci)*1852))),4326))
   suppressMessages({sf_use_s2(FALSE)
-  statdets_storm <- statdets[which(lengths(st_intersects(statdets,extnt))>0),]
+  #statdets_storm <- statdets[which(lengths(st_intersects(statdets,extnt))>0),]
+  statdets_storm <- sf::st_filter(statdets, extnt, .predicate = st_intersects)
   sf_use_s2(TRUE)})
   statdets_storm$details$removed[statdets_storm$details$removed==""] <- format(as.POSIXct(Sys.time(),tz="UTC"),"%Y-%m-%d %H:%M:%S")
   statdets_storm$details$removed <- as.POSIXct(statdets_storm$details$removed,tz="UTC")

@@ -9,8 +9,8 @@
 #' wind extents of 34, 50, and 64 knot winds in the NE, SE, SW, and NW quadrants.
 #' @param msw_int The target interval for the maximum sustained winds, which is not consistent among the agencies. The USA uses a one-minute
 #' interval, most other agencies use a 10-minute interval, but 2-minute and 3-minute intervals are also used. When consolidating the wind columns,
-#' linear models are used to translate any values whose interval is not the target interval. The models are computed from all rows in which multiple
-#' interval values are provided.
+#' linear models are used to translate any values whose interval is not the target interval. The models were computed from the complete data set of all storms.
+#' If new models are desired, adding ".new" to the interval will calculate the models from 'dat'. Beware, if 'dat' is limited, such models may not be accurate.
 #' @param pref Agency preferences for all values, listed in order of preference. If these values are present, they will be used (after conversion to the
 #' target interval). These can be any of the agency or model abbreviations in the IBTrACS data (USA, WMO, TOKYO, CMA, HKO, KMA, NEWDELHI, REUNION, BOM,
 #' NADI, WELLINGTON, DS824, TD9636, TD9635, NEUMANN, MLC). However, because storms sometimes traverse multiple agency jurisdictions, WMOfirst or WMOlast
@@ -20,6 +20,21 @@
 #' @export
 #' @importFrom dplyr if_any contains arrange
 #' @importFrom tidyr fill
+#' @examples
+
+#' #  retrieving the raw unconsolidated data
+#' storms <- get_storms(cons=FALSE)
+#'
+#' # giving TOKYO values preference
+#' storms_TOKYO <- cons_stormdat(storms,pref="TOKYO")
+#'
+#' # translating msw values to 10 min interval
+#' storms_10min <- cons_stormdat(storms,msw_int='10min')
+#'
+#' #compare
+#' plot(unlist(lapply(storms_TOKYO,function(x) x$CONS_WIND)), unlist(lapply(storms_10min,function(x) x$CONS_WIND)))
+#' plot(unlist(lapply(storms,function(x) x$USA_WIND)), unlist(lapply(storms_10min,function(x) x$CONS_WIND)))
+
 cons_stormdat <- function(dat,vars=c("wind","pres","rmw","quads","roci","poci","eye"),msw_int="1min",pref=c("USA","WMO"),fun="mean"){
 
   if ('vctrs_list_of' %in% class(dat)){listed=TRUE;dat <- lapply(dat,data.frame)|> bind_rows()}else{listed=FALSE}
@@ -90,7 +105,8 @@ do_pref <- function(df,varstr,target_int,prf,fn,mod){
         ###  !is.null(mod[[df_int]]) should only be true if the columns exist, checked in do_interval_mods
         if (!target_int==df_int&&!is.null(mod[[df_int]])){
           m <- mod[[df_int]]
-          df[!is.na(df[,C]),C] <- round(predict(m,newdata=data.frame(x=df[!is.na(df[,C]),]|>pull({{C}}))))
+          if (class(m)=="numeric") df[!is.na(df[,C]),C] <- round(cbind(rep(1,sum(!is.na(df[,C]))),df[!is.na(df[,C]),]|>pull({{C}})) %*% m)
+          else df[!is.na(df[,C]),C] <- round(predict(m,newdata=data.frame(x=df[!is.na(df[,C]),]|>pull({{C}}))))
         }
         ###  sometimes the WMO_WIND is missing, even though the wind from the corresponding WMO agency is not. fill these in.
         if (!is.null(prf)&&any(grepl("WMO",prf))){
@@ -147,43 +163,63 @@ do_pref <- function(df,varstr,target_int,prf,fn,mod){
   vals
 }
 do_interval_mods <- function(df,target_int,prf){
-  cols10 <- c("TOKYO_WIND","HKO_WIND","KMA_WIND","REUNION_WIND","BOM_WIND","NADI_WIND","WELLINGTON_WIND")
-  cols1 <- c("USA_WIND","DS824_WIND","TD9636_WIND","TD9635_WIND","NEUMANN_WIND","MLC_WIND")
-  cols2 <- "CMA_WIND"
-  cols3 <- "NEWDELHI_WIND"
-  cols <- list("10"=cols10,"1"=cols1,"2"=cols2,"3"=cols3)
-  predcols <- cols[-which(gsub("min","",target_int)==c("10","1","2","3"))]
-  predcols <- lapply(predcols,function(x) grep(paste(names(df),collapse="|"),x,value=TRUE))
-  predcols <- Filter(Negate(function(x) length(x)==0),predcols)
-  if (length(predcols)==0) return(NULL)
-  respcols <- cols[which(gsub("min","",target_int)==c("10","1","2","3"))]
-  mods <- list()
-  for (p in 1:length(predcols)){
-    ###  if a preference is given, just model that value
-    ###  Note, if WMO is the preference, this cannot be modeled as they often represent multiple time intervals
-    if(!is.null(prf)&&sum(grepl(paste(prf,collapse="|"),respcols[[1]]))>0){
-      ###  even if multiple preference were given, just use the first as the target for the models
-      r=respcols[[1]][grep(paste(prf,collapse="|"),respcols[[1]])]
-      df_long <- df |> select(r,predcols[[p]])|>
-        pivot_longer(cols=predcols[[p]])|>
-        rename(y:={{r}},x=value)|>
-        filter(!if_any(c(y,x),~is.na(.)))
-      ##  otherwise model all the values in the time interval
-    }else{
-      df_long <- lapply(respcols[[1]], function(r){
-        df |> select(r,predcols[[p]])|>
+  if (!grepl(".new",target_int)){
+    ##  coefficients from prerun models from the entire dataset
+    ##  cols are to, from, int, slope
+    mods <- matrix(c("10min","1min", 10.145175 ,0.743981,
+                     "10min","2min",5.7131874 ,0.8733879,
+                     "10min","3min",13.2073507,0.5641533,
+                     "1min","10min",-5.557331,1.207579,
+                     "1min","2min",1.087071,1.040814,
+                     "1min","3min",5.9013132,0.9902395,
+                     "2min","10min",-0.7918709,1.0434477,
+                     "2min","1min",5.7135579,0.8801318,
+                     "2min","3min",1.0, 0.7,
+                     "3min","10min",-10.964555,1.499222,
+                     "3min","1min",3.6089213,0.8267423,
+                     "3min","2min",37.3353293,0.2095808),
+                   ncol = 4, byrow = TRUE)
+    mods <- mods[mods[,1]==target_int,]
+    mods <- setNames(lapply(1:nrow(mods),function(x) as.numeric(mods[x,3:4])),mods[,2])
+  }else{
+    cols10 <- c("TOKYO_WIND","HKO_WIND","KMA_WIND","REUNION_WIND","BOM_WIND","NADI_WIND","WELLINGTON_WIND")
+    cols1 <- c("USA_WIND","DS824_WIND","TD9636_WIND","TD9635_WIND","NEUMANN_WIND","MLC_WIND")
+    cols2 <- "CMA_WIND"
+    cols3 <- "NEWDELHI_WIND"
+    cols <- list("10"=cols10,"1"=cols1,"2"=cols2,"3"=cols3)
+    predcols <- cols[-which(gsub("min","",target_int)==c("10","1","2","3"))]
+    predcols <- lapply(predcols,function(x) grep(paste(names(df),collapse="|"),x,value=TRUE))
+    predcols <- Filter(Negate(function(x) length(x)==0),predcols)
+    if (length(predcols)==0) return(NULL)
+    respcols <- cols[which(gsub("min","",target_int)==c("10","1","2","3"))]
+    mods <- list()
+    for (p in 1:length(predcols)){
+      ###  if a preference is given, just model that value
+      ###  Note, if WMO is the preference, this cannot be modeled as they often represent multiple time intervals
+      if(!is.null(prf)&&sum(grepl(paste(prf,collapse="|"),respcols[[1]]))>0){
+        ###  even if multiple preference were given, just use the first as the target for the models
+        r=respcols[[1]][grep(paste(prf,collapse="|"),respcols[[1]])]
+        df_long <- df |> select(r,predcols[[p]])|>
           pivot_longer(cols=predcols[[p]])|>
           rename(y:={{r}},x=value)|>
           filter(!if_any(c(y,x),~is.na(.)))
-      })
-      df_long <- do.call(rbind,df_long)
+        ##  otherwise model all the values in the time interval
+      }else{
+        df_long <- lapply(respcols[[1]], function(r){
+          df |> select(r,predcols[[p]])|>
+            pivot_longer(cols=predcols[[p]])|>
+            rename(y:={{r}},x=value)|>
+            filter(!if_any(c(y,x),~is.na(.)))
+        })
+        df_long <- do.call(rbind,df_long)
+      }
+      mod <- tryCatch({
+        lm(y~x,data=df_long)
+      }, error = function(e){
+        NULL})
+      mods <- append(mods,list(mod))
+      names(mods)[length(mods)] <- paste0( names(predcols)[[p]],"min")
     }
-    mod <- tryCatch({
-      lm(y~x,data=df_long)
-     }, error = function(e){
-      NULL})
-    mods <- append(mods,list(mod))
-    names(mods)[length(mods)] <- paste0( names(predcols)[[p]],"min")
   }
   mods
 }

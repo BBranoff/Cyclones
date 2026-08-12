@@ -117,7 +117,8 @@ get_surge <- function(storm,dpath=NULL,todir=NULL,cpus=NULL,overwrite=FALSE,retu
   }
   #if (exists("surges_noaa_agg")&exists("surges_usgs_agg"))surges_noaa_usgs <- bind_rows(surges_noaa_agg |> mutate(source="noaa")|>select(maxWL,HT,source),surges_usgs_agg|> mutate(source="usgs") |> select(maxWL,HT,source))
   #surges_surgedat_agg <- surges_surgedat |> group_by(geometry)
-  r <- rast(ext(st_transform(tiles,4326)), res=0.1)
+
+  r <- rast(ext(st_shift_longitude(st_transform(tiles,4326))), res=0.1)
   terra::crs(r) <- terra::crs("epsg:4326")
   r.points <- suppressWarnings(terra::as.points(r))
   ###  create a background of the inerpolated maximum water height
@@ -128,7 +129,8 @@ get_surge <- function(storm,dpath=NULL,todir=NULL,cpus=NULL,overwrite=FALSE,retu
     ##  by source
     for (src in c("cmip6","noaa|usgs")){
       if (any(grepl(src,surges_agg$source))){
-        idw_mod <- gstat::gstat(formula = as.formula(paste(var,1,sep="~")), data = surges_agg|>ungroup()|>filter(grepl(src,rastsource))|>filter(!is.na(!!rlang::sym(var))),
+        idw_mod <- gstat::gstat(formula = as.formula(paste(var,1,sep="~")),
+                                data = surges_agg|>ungroup()|>filter(grepl(src,rastsource))|>filter(!is.na(!!rlang::sym(var)))|>st_shift_longitude(),
                                 set = list(idp = 2))
         idw_pred <- predict(idw_mod, st_as_sf(r.points),debug.level = 0)
         idw_rast <- rasterize(vect(idw_pred), r, field = "var1.pred")
@@ -157,6 +159,7 @@ get_surge <- function(storm,dpath=NULL,todir=NULL,cpus=NULL,overwrite=FALSE,retu
   surgerasts <- Filter(Negate(is.null), surgerasts)
   if (length(surgerasts)>0){
     surgerasts <-  lapply(surgerasts, unwrap)
+    surgerasts <- lapply(surgerasts,rotate)
     if (length(surgerasts)>1) surgerast <- round(do.call(mosaic,surgerasts),3)
     else surgerast <- round(surgerasts[[1]],3)
     names(surgerast)=paste0("maxsurgedepth.m_",rname)
@@ -226,8 +229,8 @@ surgeapply <-  function(x,elvs,srges,s_int,tls){
     #s_int <- project(s_int,el)
   #  surge <- maxWL#s_int
   }
-  maxWL <- project(crop(s_int[[grepl("maxWL",names(s_int))]],el),el)
-  meanHT <- project(crop(s_int[[grepl("HT",names(s_int))]],el),el)
+  maxWL <- project(crop(s_int[[grepl("maxWL",names(s_int))]],rotate(el)),el)
+  meanHT <- project(crop(s_int[[grepl("HT",names(s_int))]],rotate(el)),el)
   ###  if the elevation is bigger than the water level, its too high to be flooded
   maxWL[el>maxWL] <- NA
   #el2 <- el

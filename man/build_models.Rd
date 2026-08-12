@@ -10,7 +10,8 @@ build_models(storms = NULL, strip = FALSE)
 \item{storms}{A list of storm tabular data as output by the \code{get_storms()} function. Ideally, this should include the largest possible pool of storms relevant for
 subsequent analyses, as the models will reflect variability in these input storms only.}
 
-\item{keep_data}{Whether to retain the training data with a prediction column for each set of models.}
+\item{strip}{Whether to strip down the models and the nested structure into separate lists, rather than nested data sets. This helps when trying to view the
+models or the underlying data or when trying to save to disk.}
 }
 \value{
 A list of nested tibbles, one for each of the model groups:

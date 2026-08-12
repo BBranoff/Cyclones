@@ -10,7 +10,8 @@ make_extents(
   type = "linestrings",
   t_res = NULL,
   agency = "CONS",
-  cpus = NULL
+  cpus = NULL,
+  todir = NULL
 )
 }
 \arguments{
@@ -37,6 +38,27 @@ system (crs) centered on the storm's centroid and in a Lambert azimuthal equal-a
 representing the maximum wind extent of various wind speeds at each time step of the storm, as well as the outer pressure extent (ROCI) and tracks representing the center of the storm.
 By default, only the native time steps are included (usually every 3 hours), but the 't_res' argument can be used to change the temporal resolution and create
 interpolated extents at different, usually more frequent, time steps. Unlike other functions in Cyclones, the 'make_extents()' iterations are relatively faster and computation times
-typically increase, rather than decrease, in parallel. Thus, parallel computation can only be performed at the storm level .
-#'
+typically increase, rather than decrease, in parallel. Thus, for now, parallel computation can only be performed at the storm level.
+}
+\examples{
+
+storms <- get_storms()
+##  will only compute the first storm
+windextent <- make_extents(storms)
+##  to compute all storms
+windextents <- lapply(storms,make_extents)
+library(ggplot2)
+ggplot(windextent) + geom_sf(aes(col=kts))
+
+# to include modeling, best to model based on entire dataset
+allstorms <- get_storms(ib_filt="ALL")
+mods <- build_models(allstorms)
+windextent_mod <- make_extents(storms,mods=mods)
+ggplot(windextent_mod) + geom_sf(aes(col=kts))
+
+# use t_res to increase time step frequency
+# here, every 30 mins
+windextent_mod30 <- make_extents(storms,mods=mods,t_res=30)
+ggplot(windextent_mod30) + geom_sf(aes(col=kts))
+
 }
