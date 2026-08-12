@@ -24,7 +24,7 @@ remotes::install_github("BBranoff/Cyclones")
 remotes::install_github("BBranoff/Cyclones@development")
 ```
 
-# Recent ’Development” Branch Updates (Aug 2026):
+# Recent ‘Development’ Branch Updates (Aug 2026):
 
 - Added ‘aggregate_product()’ function and ‘agg’ argument to get_winds()
   and get_precip() for whole storm aggregated outputs
@@ -32,16 +32,18 @@ remotes::install_github("BBranoff/Cyclones@development")
   interpolate everything in between for faster processing
 - Added pre-loaded msw interval model coefficients to ‘cons_stormdat()’.
   This allows the msw interval translation to occur when limited data is
-  supplied. \*\* Adding ‘.new’ to the “msw_int” argument will override
-  these coefficients and compute new models on the supplied data.
+  supplied.
+  - Adding ‘.new’ to the “msw_int” argument will override these
+    coefficients and compute new models on the supplied data.
 - Added Google Cloud as a source for ecmwf precipitation. Using the
   source=“emcwf_GC” argument will retrieve the data from Google Cloud
-  instead of the ECMWF service. \*\* This was done to avoid getting
-  queued in the ECMWF service. \*\* The GC products are .tif, whereas
-  the ECMWF products are .grib, and the extents are slightly different.
-  Thus, the ‘get_ecmwf()’ function will delete any storm data that is
-  incomplete if one or the other is requested, ensuring a storm is
-  sourced from either ‘ecmwf’ or ‘ecmef_GC’, but not both.
+  instead of the ECMWF service.
+  - This was done to avoid getting queued in the ECMWF service.
+  - The GC products are .tif, whereas the ECMWF products are .grib, and
+    the extents are slightly different. Thus, the ‘get_ecmwf()’ function
+    will delete any storm data that is incomplete if one or the other is
+    requested, ensuring a storm is sourced from either ‘ecmwf’ or
+    ‘ecmef_GC’, but not both.
 - Storm surge products from storms spanning the 180 meridian were very
   large, encompassing all longitudes. This has been resolved by shifting
   and/or rotating these storm extents to retreive the necessary data.
