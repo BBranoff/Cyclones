@@ -81,6 +81,13 @@ get_ecmwf <- function(cent,dpath=tempdir(),dfiles=NULL,GC=FALSE){
   }else{
     reqs <- requests$done
   }
+  reqs <- lapply(reqs, function(x){
+    r<- rast(x)
+    t <-times[format(as.Date(gsub(".grib|.tif","",sapply(strsplit(basename(x),"_"),"[[",7))),"%j") ==format(times,"%j")]
+    t <- t[format(t,"%M")=="00"]
+    terra::time(r) <- t
+    r
+  })
   cat("\n")
   wrap(rast(reqs)*1000)
 }

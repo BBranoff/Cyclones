@@ -31,7 +31,6 @@ remotes::install_github("BBranoff/Cyclones@development")
 * added 'todir' argument to 'make_extents()', allowing indidivual storm extents to be saved upon completion. 
 
 
-
 # Highlights
 * Produce raster images of cyclone winds, rains, and storm surge, either at specific times or as aggregate
   * Choose data sources and temporal and spatial resolutions

@@ -117,7 +117,6 @@ get_surge <- function(storm,dpath=NULL,todir=NULL,cpus=NULL,overwrite=FALSE,retu
   }
   #if (exists("surges_noaa_agg")&exists("surges_usgs_agg"))surges_noaa_usgs <- bind_rows(surges_noaa_agg |> mutate(source="noaa")|>select(maxWL,HT,source),surges_usgs_agg|> mutate(source="usgs") |> select(maxWL,HT,source))
   #surges_surgedat_agg <- surges_surgedat |> group_by(geometry)
-
   r <- rast(ext(st_shift_longitude(st_transform(tiles,4326))), res=0.1)
   terra::crs(r) <- terra::crs("epsg:4326")
   r.points <- suppressWarnings(terra::as.points(r))
@@ -127,6 +126,7 @@ get_surge <- function(storm,dpath=NULL,todir=NULL,cpus=NULL,overwrite=FALSE,retu
   for (var in c("maxWL","HT")){
     ###  inverse distance weighted model to interpolate between water levels
     ##  by source
+
     for (src in c("cmip6","noaa|usgs")){
       if (any(grepl(src,surges_agg$source))){
         idw_mod <- gstat::gstat(formula = as.formula(paste(var,1,sep="~")),
