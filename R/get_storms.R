@@ -19,6 +19,8 @@
 #' @param cols Which columns to retain in the output if consolidate is TRUE. Default is that only consolidated values are retained, in addition to storm identification, location,
 #' and time information. Input values can be specific column names or agency prefixes, in which case all column from that agency are retained. If consolidation is FALSE,
 #' all original columns are retained when 'cols' is empty.
+#' @param erddap Exploratory, waiting on ERDDAP host fixes. Whether to retrieve filtered IBTRACS data from ERDDAP, which negates the need to download a full subset if only
+#' one storm is needed.
 #' @param returndf if the results shuold be returned as a single data frame (TRUE) or as a list of single storm data frames (FALSE, default).
 #' @param ... Additional arguments passed to cons_stormdat(), e.g. 'pref', 'msw_int'.
 #' @returns A list of data.frames, one for each storm, containing tabular information required for Cyclone processing. The names for each data.frame in the list are
@@ -38,7 +40,7 @@
 #' NorAtl <- get_storms(basin="NA")
 #'
 #' @importFrom dplyr filter mutate any_of select pull slice group_split syms coalesce group_keys first if_else group_by
-get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,erddap=TRUE,returndf=FALSE,...){
+get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,erddap=FALSE,returndf=FALSE,...){
   tmf <- tempfile(pattern=paste0(c(source,id,name,season,basin,ib_filt),collapse="_"))
   on.exit(unlink(tmf), add = TRUE)
   if (is.data.frame(source)){
