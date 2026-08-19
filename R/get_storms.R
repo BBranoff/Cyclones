@@ -41,8 +41,7 @@
 #'
 #' @importFrom dplyr filter mutate any_of select pull slice group_split syms coalesce group_keys first if_else group_by
 get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib_filt=NULL,consolidate=TRUE,cols=NULL,erddap=FALSE,returndf=FALSE,...){
-  tmf <- tempfile(pattern=paste0(c(source,id,name,season,basin,ib_filt),collapse="_"))
-  on.exit(unlink(tmf), add = TRUE)
+  browser()
   if (is.data.frame(source)){
     dat=source
   }else if (is.character(source)){
@@ -67,31 +66,37 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
           }
         }
         ###  download with url
-        tryCatch({
-          # Attempt to download the file
-          download.file(URL,paste0(tmf,".csv"))
-          dat = read.csv(paste0(tmf,".csv"))
-          message("Download successful!")
-        },
-        error = function(e) {
-          # Check if the error message indicates a timeout
-          if (grepl("Timeout", e$message, ignore.case = TRUE)) {
-            warning("Download timeout reached. Please check your internet connection or increase the R timeout option. Alernatively, download and source data directly from browser.")
-          } else {
-            # Handle other potential errors (e.g., file not found, permission issues)
-            warning(paste("Download failed with error:", e$message))
-          }
-          # Return NULL or an indicator of failure
-          invisible(NULL)
-        },
-        warning = function(w) {
-          if (grepl("Timeout|!= reported length", w$message, ignore.case = TRUE)) {
-            stop("Download timeout reached. Please check your internet connection or increase the R timeout option. Alternatively, download and source data directly from browser.")
-          }else{
-            # Handle other warnings, such as "downloaded length != reported length"
-            message(paste("A warning occurred during download:", w$message))
-          }
-        })
+        tmf = paste0(tempdir(),"\\",basename(URL))
+        if (file.exists(tmf)) dat=read.csv(tmf)
+        else{
+          #tmf <- tempfile(pattern=tempbase )
+          #on.exit(unlink(tmf), add = TRUE)
+          tryCatch({
+            # Attempt to download the file
+            download.file(URL,tmf)
+            dat = read.csv(tmf)
+            message("Download successful!")
+          },
+          error = function(e) {
+            # Check if the error message indicates a timeout
+            if (grepl("Timeout", e$message, ignore.case = TRUE)) {
+              warning("Download timeout reached. Please check your internet connection or increase the R timeout option. Alernatively, download and source data directly from browser.")
+            } else {
+              # Handle other potential errors (e.g., file not found, permission issues)
+              warning(paste("Download failed with error:", e$message))
+            }
+            # Return NULL or an indicator of failure
+            invisible(NULL)
+          },
+          warning = function(w) {
+            if (grepl("Timeout|!= reported length", w$message, ignore.case = TRUE)) {
+              stop("Download timeout reached. Please check your internet connection or increase the R timeout option. Alternatively, download and source data directly from browser.")
+            }else{
+              # Handle other warnings, such as "downloaded length != reported length"
+              message(paste("A warning occurred during download:", w$message))
+            }
+          })
+        }
       }
       ##  HURDAT
     }else if (source=="hurdat"){
@@ -111,12 +116,12 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
       }
       if (length(url)==2){
         for (u in 1:2){
-          dt <- get_hurdat(url[u],tmf,id,basins[u])
+          dt <- get_hurdat(url[u],id,basins[u])
           if (u!=1) dat <- rbind(dat,dt)
           else dat <- dt
         }
       }else{
-        dat <- get_hurdat(url,tmf,id,basin)
+        dat <- get_hurdat(url,id,basin)
       }
     }else if(grepl(".nc",source)){
       if (!requireNamespace("ncdf4", quietly = TRUE)) {
@@ -192,15 +197,15 @@ get_storms <- function(source="ncei",id=NULL,name=NULL,season=NULL,basin=NULL,ib
   }
   return(dat)
 }
-get_hurdat <- function(u,tf,ID,basin){
+get_hurdat <- function(u,ID,basin){
+  tf=paste0(tempdir(),"\\",gsub(".html",".txt",basename(u)))
   tryCatch({
     # Attempt to download the file
-    if (length(list.files(dirname(tf),pattern=paste((strsplit(basename(tf),"_"))[[1]][1:3],collapse="_")))>0){
-      cat(paste0("Loading previously downloaded file from temp folder: ",tempdir()))
-      tf <-gsub(".txt","",list.files(dirname(tf),pattern=paste((strsplit(basename(tf),"_"))[[1]][1:3],collapse="_"),full.names = TRUE))
+    if (!file.exists(tf)){
+      download.file(u,tf)
     }
-    else (download.file(u,paste0(tf,".txt")))
-    hurdat <- readLines(paste0(tf,".txt"))
+    else (cat(paste0("Loading previously downloaded file from temp folder: ",tempdir())))
+    hurdat <- readLines(tf)
     message("Download successful!")
   },
   error = function(e) {
@@ -251,7 +256,6 @@ get_hurdat <- function(u,tf,ID,basin){
   },y=hurdat)
   dat <- do.call(rbind,storms) |>
     mutate(BASIN=basin,SEASON=substr(date,1,4))
-
   dat
 }
 get_nc <-  function(srce){
